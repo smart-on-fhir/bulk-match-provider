@@ -1,0 +1,196 @@
+import Path                                                from "path"
+import type { Request, Response }                          from "express"
+import { statSync }                                        from "fs"
+import { readdir }                                         from "fs/promises"
+import { IncomingHttpHeaders }                             from "http"
+import config                                              from "./config"
+import Job                                                 from "./Job"
+import { createOperationOutcome, getRequestBaseURL, uInt } from "./lib"
+import { BadRequest }                                      from "./HttpError"
+import type app                                            from "../index"
+
+
+export async function abort(req: Request, res: Response) {
+    try {
+        var job = await Job.byId(req.params.id)
+    } catch (ex) {
+        // @ts-ignore
+        if (ex.http && ex.statusCode === 404) {
+            return res.status(404).json(createOperationOutcome(ex))
+        }
+        throw ex
+    }
+    await job.destroy()
+    res.status(202).json(
+        createOperationOutcome("Job deleted", { severity: "information" })
+    )
+}
+
+export async function getJob(req: Request, res: Response) {
+    const job = await Job.byId(req.params.id)
+    res.json(job)
+}
+
+export async function listJobs(req: Request, res: Response) {
+    const result = []
+    for (const id of await readdir(config.jobsDir)) {
+        if (statSync(Path.join(config.jobsDir, id)).isDirectory()) {
+            result.push((await Job.byId(id)).toJSON())
+        }
+    }
+    res.json(result)
+}
+
+export async function checkStatus(req: Request, res: Response) {
+    try {
+        var job = await Job.byId(req.params.id)
+    } catch (ex) {
+        return res.status(404).json(createOperationOutcome(ex))
+    }
+
+    if (job.percentage === 100) {
+        return res.json(job.manifest)
+    }
+
+    res.header("Access-Control-Expose-Headers", "X-Progress,Retry-after")
+    res.header("X-Progress" , job.percentage + "% complete")
+    res.header("Retry-after", config.jobCleanupMinutes * 60 + "")
+    res.status(202).end()
+}
+
+export async function downloadFile(req: Request, res: Response) {
+    const dir = Path.join(config.jobsDir, req.params.id)
+
+    if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
+        return res.status(404).json(createOperationOutcome("Export job not found"))
+    }
+
+    const path = Path.join(dir, "files", req.params.file)
+
+    if (!statSync(path, { throwIfNoEntry: false })?.isFile()) {
+        return res.status(404).json(createOperationOutcome("File not found"))
+    }
+
+    res.sendFile(path, {
+        headers: {
+            "content-type"       : "application/fhir+ndjson",
+            "content-disposition": "attachment",
+            "connection"         : "close"
+        }
+    })
+}
+
+export async function kickOff(req: Request, res: Response) {
+    validateMathHeaders(req.headers)
+    const params = getMatchParameters(req.body as fhir4.Parameters)
+    const baseUrl = getRequestBaseURL(req);
+    const job = await Job.create(baseUrl)
+    job.run(params)
+    const statusUrl = `${baseUrl}/jobs/${job.id}/status`
+    res.header("Content-Location", statusUrl)
+    res.header("Access-Control-Expose-Headers", "Content-Location")
+    res.status(202).json(
+        createOperationOutcome(
+            `Job started and can be tracked at ${statusUrl}`,
+            { severity: "information" }
+        )
+    )
+}
+
+function validateMathHeaders(headers: IncomingHttpHeaders) {
+
+    // console.log(headers)
+    
+    // Specifies the format of the optional FHIR OperationOutcome resource
+    // response to the kick-off request. Currently, only application/fhir+json
+    // is supported. A client SHOULD provide this header. If omitted, the server
+    // MAY return an error or MAY process the request as if application/fhir+json
+    // was supplied.
+    if (headers.accept && headers.accept !== "application/fhir+ndjson") {
+        throw new BadRequest(
+            `If used, the accept header must be 'application/fhir+ndjson'`
+        )
+    }
+
+    // Specifies whether the response is immediate or asynchronous. Currently,
+    // only a value of respond-async is supported. A client SHOULD provide this
+    // header. If omitted, the server MAY return an error or MAY process the
+    // request as if respond-async was supplied.
+    if (headers.prefer && headers.prefer !== "respond-async") {
+        throw new BadRequest(
+            `If used, the prefer header must be 'respond-async'`
+        )
+    }
+}
+
+function getMatchParameters(body: fhir4.Parameters): app.MatchOperationParams {
+    const { parameter, resourceType } = body
+
+    // Verify that we have a Parameters resource with parameter array
+    if (resourceType !== "Parameters" || !parameter || !Array.isArray(parameter)) {
+        throw new BadRequest("Invalid Parameters resource")
+    }
+
+    // Get all resource parameters
+    const resourceParams = parameter.filter(p => p.name === "resource")
+
+    // Must have at least one resource parameter
+    if (!resourceParams.length) {
+        throw new BadRequest("At least one resource parameter must be provided")
+    }
+
+    // Can't have too many resource parameters
+    if (resourceParams.length > config.resourceParameterLimit) {
+        throw new BadRequest(
+            `Cannot use more than ${config.resourceParameterLimit} resource ` +
+            `parameters. Please use multiple $bulk-match calls to match more resources`
+        )
+    }
+
+    // Some validation for every resource parameter
+    resourceParams.forEach((r, i) => {
+        if (r.resource?.resourceType !== "Patient") {
+            throw new BadRequest(`resource[${i}] does not appear to be a Patient resource`)
+        }
+
+        if (!r.resource?.id) {
+            throw new BadRequest(`resource[${i}] is required to have an "id" attribute`)
+        }
+    })
+
+    const onlySingleMatch = parameter.find(p => p.name === "onlySingleMatch")?.valueBoolean
+
+    // Verify that onlySingleMatch is a boolean
+    if (onlySingleMatch !== undefined && onlySingleMatch !== true && onlySingleMatch !== false) {
+        throw new BadRequest(`Only boolean values are accepted for the onlySingleMatch parameter`)
+    }
+
+    const onlyCertainMatches = parameter.find(p => p.name === "onlyCertainMatches")?.valueBoolean
+
+    // Verify that onlyCertainMatches is a boolean
+    if (onlyCertainMatches !== undefined && onlyCertainMatches !== true && onlyCertainMatches !== false) {
+        throw new BadRequest(`Only boolean values are accepted for the onlyCertainMatches parameter`)
+    }
+
+    const count = parameter.find(p => p.name === "count")?.valueInteger
+
+    // Verify that count is a valid number
+    if (count !== undefined && (isNaN(count) || !isFinite(count) || count < 1)) {
+        throw new BadRequest(`Only integers grater than 0 are accepted for the count parameter`)
+    }
+
+    const _outputFormat = parameter.find(p => p.name === "_outputFormat")?.valueString
+    
+    // Verify that _outputFormat is valid
+    if (_outputFormat !== undefined && !["application/fhir+ndjson", "application/ndjson", "ndjson"].includes(_outputFormat)) {
+        throw new BadRequest(`If used, the _outputFormat parameter must be one of 'application/fhir+ndjson', 'application/ndjson' or 'ndjson'`)
+    }
+
+    return {
+        resource          : resourceParams,
+        onlySingleMatch   : onlySingleMatch || false,
+        onlyCertainMatches: onlyCertainMatches || false,
+        count             : uInt(count),
+        _outputFormat     : _outputFormat || "application/fhir+ndjson"
+    }
+}
