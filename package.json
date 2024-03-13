@@ -4,7 +4,7 @@
   "description": "Bulk Match Provider",
   "source": "./app/index.html",
   "scripts": {
-    "start": "npm run clean && parcel build ./app/index.html && ts-node --transpile-only ./src/index.ts",
+    "start": "npm run clean && parcel build --dist-dir ./dist ./app/index.html && ts-node --transpile-only ./src/index.ts",
     "start:watch": "nodemon -e ts -x 'npm run start'",
     "test": "DOTENV_CONFIG_PATH=.env.test nyc --reporter=lcov mocha -r ts-node/register",
     "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'",
