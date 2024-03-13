@@ -2,19 +2,23 @@
   "name": "bulk-match-provider",
   "version": "1.0.0",
   "description": "Bulk Match Provider",
-  "source": "./app/index.html",
+  "app": "./app/index.html",
   "scripts": {
-    "start": "npm run clean && parcel build --dist-dir ./dist ./app/index.html && ts-node --transpile-only ./src/index.ts",
+    "start": "npm run clean && parcel build --target app && ts-node --transpile-only ./src/index.ts",
     "start:watch": "nodemon -e ts -x 'npm run start'",
     "test": "DOTENV_CONFIG_PATH=.env.test nyc --reporter=lcov mocha -r ts-node/register",
     "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'",
-    "start:app": "parcel",
-    "clean": "rm -rf ./dist/*"
+    "start:app": "parcel --target",
+    "clean": "rm -rf ./app/dist/*"
   },
   "targets": {
-    "default": {
+    "main": false,
+    "app": {
       "source": "./app/index.html",
-      "distDir": "./dist"
+      "distDir": "./app/dist",
+      "context" : "browser",
+      "outputFormat" : "global",
+      "isLibrary" : false
     }
   },
   "repository": {
