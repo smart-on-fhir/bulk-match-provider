@@ -52,7 +52,7 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
     }
     
     /* istanbul ignore next */
-    if (process.env.NODE_ENV === "development") console.error(error);
+    if (process.env.NODE_ENV !== "test") console.error(error);
     /* istanbul ignore next */
 
     res.status(error.statusCode).json(error)
