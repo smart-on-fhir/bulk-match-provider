@@ -8,6 +8,7 @@ import { HttpError, InternalServerError, NotFound } from "./HttpError"
 import { startChecking }                            from "./JobManager"
 import { asyncRouteWrap }                           from "./lib"
 import * as Gateway                                 from "./Gateway"
+import { join }                                     from "path"
 
 
 const app = express()
@@ -34,6 +35,9 @@ app.get("/jobs/:id", asyncRouteWrap(Gateway.getJob))
 
 // Proprietary for debug: list all jobs
 app.get("/jobs", asyncRouteWrap(Gateway.listJobs))
+
+app.use(express.static(join(__dirname, "../dist/")));
+app.get("*", (req, res) => res.sendFile("index.html", { root: join(__dirname, "../dist/") }));
 
 // Global error 404 handler
 app.use((req: Request, res: Response) => {
