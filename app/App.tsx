@@ -38,7 +38,7 @@ const initialState: State = {
     snippet      : null,
     matchRequest : {
         loading           : false,
-        baseUrl           : "http://127.0.0.1:3456/fhir/",
+        baseUrl           : process.env.NODE_ENV === "production" ? window.location.origin + "/fhir/" : "http://127.0.0.1:3456/fhir/",
         onlySingleMatch   : false,
         onlyCertainMatches: false,
         count             : 0,

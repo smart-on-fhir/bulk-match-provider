@@ -37,6 +37,7 @@ export default function MatchRequest({
                                 placeholder="Server Base URL"
                                 value={baseUrl}
                                 onChange={ e => onChange({ baseUrl: e.target.value }) }
+                                readOnly
                             />
                         </div>
                     </div>
