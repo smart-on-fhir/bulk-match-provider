@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useReducer } from "react"
+import { FormEvent, useReducer } from "react"
 import PresetSelector            from "./PresetSelector"
 import type { Preset }           from "./presets"
 import Collapse                  from "./Collapse"
