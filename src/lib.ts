@@ -108,3 +108,18 @@ export async function lock(path: string): Promise<() => Promise<void>> {
     });
     return () => lockfile.unlock(path, { realpath: false });
 }
+
+export function bundle<T extends fhir4.Resource>(resources: T[], baseUrl: string): fhir4.Bundle<T> {
+    return {
+        resourceType: "Bundle",
+        type: "searchset",
+        total: resources.length,
+        entry: resources.map(resource => ({
+            fullUrl: `${baseUrl}/fhir/${resource.resourceType}/${resource.id}`,
+            resource,
+            search: {
+                mode: "match"
+            }
+        }))
+    };
+}

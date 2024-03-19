@@ -16,9 +16,9 @@
     "app": {
       "source": "./app/index.html",
       "distDir": "./app/dist",
-      "context" : "browser",
-      "outputFormat" : "global",
-      "isLibrary" : false
+      "context": "browser",
+      "outputFormat": "global",
+      "isLibrary": false
     }
   },
   "repository": {

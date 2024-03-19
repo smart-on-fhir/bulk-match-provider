@@ -3,23 +3,25 @@ import { Server }                                   from "http"
 import cors                                         from "cors"
 import express, { json }                            from "express"
 import type { NextFunction, Request, Response }     from "express"
+import { join }                                     from "path"
 import config                                       from "./config"
 import { HttpError, InternalServerError, NotFound } from "./HttpError"
 import { startChecking }                            from "./JobManager"
 import { asyncRouteWrap }                           from "./lib"
 import * as Gateway                                 from "./Gateway"
-import { join }                                     from "path"
+import { router as FHIRRouter }                     from "./fhir" 
 
 
 const app = express()
 
 app.use(cors({ origin: true, credentials: true }))
 // app.use(urlencoded({ extended: false, limit: "64kb" }));
+
+// Automatically parse incoming JSON payloads
 app.use(json());
 
-
-// bulk-match
-app.post("/fhir/Patient/\\$bulk-match", asyncRouteWrap(Gateway.kickOff))
+// bulk-match and other fhir endpoints
+app.use(["/:sim/fhir", "/fhir"], FHIRRouter)
 
 // get job status
 app.get("/jobs/:id/status", asyncRouteWrap(Gateway.checkStatus))
@@ -30,14 +32,17 @@ app.delete("/jobs/:id/status", asyncRouteWrap(Gateway.abort))
 // download bulk file
 app.get("/jobs/:id/files/:file", asyncRouteWrap(Gateway.downloadFile))
 
-// Proprietary for debug: view job by ID
+// proprietary: view job by ID
 app.get("/jobs/:id", asyncRouteWrap(Gateway.getJob))
 
-// Proprietary for debug: list all jobs
+// proprietary: list all jobs
 app.get("/jobs", asyncRouteWrap(Gateway.listJobs))
 
+// Static files for the web app
 app.use(express.static(join(__dirname, "../app/dist/")));
-app.get("*", (req, res) => res.sendFile("index.html", { root: join(__dirname, "../app/dist/") }));
+
+// The web app
+app.get(["/", "/index.html"], (req, res) => res.sendFile("index.html", { root: join(__dirname, "../app/dist/") }));
 
 // Global error 404 handler
 app.use((req: Request, res: Response) => {
