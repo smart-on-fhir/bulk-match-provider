@@ -24,7 +24,7 @@ export default function MatchResults({ manifest }: { manifest: MatchManifest }) 
 
     return (
         <div className="card border-success mt-4">
-            <div className="card-header bg-danger border-success bg-opacity-25">
+            <div className="card-header bg-success border-success bg-opacity-25">
                 <b><i className="bi bi-search me-1" />Match Results</b>
             </div>
             <div className="card-body">
