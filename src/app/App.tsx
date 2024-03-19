@@ -1,11 +1,13 @@
-import { FormEvent, useReducer } from "react"
+import { FormEvent, useEffect, useReducer } from "react"
 import PresetSelector            from "./PresetSelector"
 import type { Preset }           from "./presets"
 import Collapse                  from "./Collapse"
 import Status                    from "./Status"
 import MatchRequest              from "./MatchRequest"
 import MatchResults              from "./MatchResults"
-import { MatchManifest }         from ".."
+import { MatchManifest }         from "../.."
+import ResponseView              from "./Response"
+import "./style.scss"
 
 
 interface State {
@@ -21,8 +23,10 @@ interface State {
         submittedAt      ?: number
     }
     matchResponse: {
-        statusHeading: string,
+        headers: Record<string, string>
         text: string
+        response?: Response
+        payload?: any
     }
     statusURL: string
     statusResponses: {
@@ -38,7 +42,9 @@ const initialState: State = {
     snippet      : null,
     matchRequest : {
         loading           : false,
-        baseUrl           : process.env.NODE_ENV === "production" ? window.location.origin + "/fhir/" : "http://127.0.0.1:3456/fhir/",
+        baseUrl           : process.env.NODE_ENV === "production" ?
+            window.location.origin + "/fhir/" :
+            "http://127.0.0.1:3456/fhir/",
         onlySingleMatch   : false,
         onlyCertainMatches: false,
         count             : 0,
@@ -46,7 +52,7 @@ const initialState: State = {
         resources         : `[]`
     },
     matchResponse: {
-        statusHeading: "",
+        headers: {},
         text: ""
     },
     statusURL      : "",
@@ -59,11 +65,14 @@ function reducer(state: State, payload: Partial<State>): State {
     return { ...state, ...payload };
 }
 
-
-
 export default function App() {
 
     const [state, dispatch] = useReducer(reducer, initialState);
+
+    const {
+        matchRequest,
+        matchResponse
+    } = state;
 
     async function sendMatchRequest(e: FormEvent) {
 
@@ -123,16 +132,18 @@ export default function App() {
             const json = await res.json()
             
             let txt = []
-            res.headers.forEach((value, key) => {
-                txt.push(`${key}: ${value}\n`)
-            })
-            txt.push("\n")
+            // res.headers.forEach((value, key) => {
+            //     txt.push(`${key}: ${value}\n`)
+            // })
+            // txt.push("\n")
             txt.push(JSON.stringify(json, null, 4))
 
             dispatch({
                 matchResponse: {
-                    statusHeading: res.status + " " + res.statusText,
-                    text: txt.join("")
+                    headers: Object.fromEntries(res.headers.entries()),
+                    text: txt.join(""),
+                    response: res,
+                    payload: json
                 },
                 matchRequest: {
                     ...state.matchRequest,
@@ -173,17 +184,12 @@ export default function App() {
                                 ...initialState,
                                 matchRequest: {
                                     ...initialState.matchRequest,
-                                    // loading: false,
-                                    // baseUrl           : initialState.matchRequest.baseUrl,
                                     onlySingleMatch   : s?.params.onlySingleMatch    ?? initialState.matchRequest.onlySingleMatch,
                                     onlyCertainMatches: s?.params.onlyCertainMatches ?? initialState.matchRequest.onlyCertainMatches,
                                     count             : s?.params.count              ?? initialState.matchRequest.count,
                                     resources
                                 },
-                                snippet: s,
-                                // error: null,
-                                // manifest: undefined,
-                                // matchResponse: null
+                                snippet: s
                             })
                         }} />
                     </div>
@@ -193,41 +199,20 @@ export default function App() {
                 <Collapse header={ <h5 className="m-0">Bulk-Match Request</h5> } open>
                     <MatchRequest
                         state={{
-                            baseUrl           : state.matchRequest.baseUrl,
-                            onlyCertainMatches: state.matchRequest.onlyCertainMatches,
-                            onlySingleMatch   : state.matchRequest.onlySingleMatch,
-                            count             : state.matchRequest.count,
-                            resources         : state.matchRequest.resources,
+                            baseUrl           : matchRequest.baseUrl,
+                            onlyCertainMatches: matchRequest.onlyCertainMatches,
+                            onlySingleMatch   : matchRequest.onlySingleMatch,
+                            count             : matchRequest.count,
+                            resources         : matchRequest.resources,
                         }}
-                        onChange={p => dispatch({ matchRequest: { ...state.matchRequest, ...p }})}
+                        onChange={p => dispatch({ matchRequest: { ...matchRequest, ...p }})}
                         onSubmit={sendMatchRequest}
                     />
                 </Collapse>
-                { state.matchResponse.statusHeading &&
-                    <Collapse header={ <h5 className="m-0">Bulk-Match Response</h5> }>
-                        <hr className="my-1" />
-                        {
-                            state.matchRequest.loading ?
-                            "Loading..." : 
-                            <>
-                                <div className="row">
-                                    <div className="col"><b>{state.matchResponse.statusHeading}</b></div>
-                                </div>
-                                <div className="row mb-4">
-                                    <div className="col">
-                                        <pre>{state.matchResponse.text}</pre>
-                                    </div>
-                                </div>
-                            </>
-                        }
-                    </Collapse>
-                }
-                { state.statusURL && <Status
-                    statusURL={state.statusURL}
-                    key={"status-" + state.matchRequest.submittedAt}
-                    onComplete={ manifest => dispatch({ manifest }) }
-                /> }
-                { state.manifest && <MatchResults manifest={state.manifest} key={"result-" + state.matchRequest.submittedAt} /> }
+                { matchRequest.loading && <div className="spinner-border text-secondary" role="status"/> }
+                { matchResponse.response && <ResponseView response={ matchResponse.response! } payload={ matchResponse.payload } heading="Bulk-Match Response" /> }
+                { state.statusURL && <Status statusURL={ state.statusURL } key={"status-" + matchRequest.submittedAt} onComplete={ manifest => dispatch({ manifest }) } /> }
+                { state.manifest && <MatchResults manifest={state.manifest} key={"result-" + matchRequest.submittedAt} /> }
             </div>
         </>
     )

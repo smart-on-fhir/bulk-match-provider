@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { MatchManifest } from ".."
+import { MatchManifest } from "../.."
 import Collapse from "./Collapse"
 import { roundToPrecision } from "./lib"
 
@@ -23,8 +23,8 @@ export default function MatchResults({ manifest }: { manifest: MatchManifest }) 
     }, []);
 
     return (
-        <div className="card mt-4">
-            <div className="card-header">
+        <div className="card border-success mt-4">
+            <div className="card-header bg-danger border-success bg-opacity-25">
                 <b><i className="bi bi-search me-1" />Match Results</b>
             </div>
             <div className="card-body">
@@ -32,13 +32,19 @@ export default function MatchResults({ manifest }: { manifest: MatchManifest }) 
                 const count = entry.results?.entry?.length
                 return (
                     <Collapse key={i} header={
-                        <><span>{ entry.url }</span><span className="badge rounded-pill text-bg-success mx-2">{ count }</span></>
+                        <>
+                            <span>{ entry.url }</span>
+                            <a href={ entry.url } rel="download" onClick={ e => e.stopPropagation() } className="mx-4">
+                                <i className="bi bi-cloud-download" />
+                            </a>
+                            <span className="badge rounded-pill text-bg-success">{ count }</span>
+                        </>
                     } open>
                         <ul>
                         { entry.results?.entry?.map((o, y) => (
                             <li key={y}>
-                                <a href={ o.fullUrl }>{ humanName((o.resource as fhir4.Patient)) }</a>
-                                { o.search?.score ? " (" + roundToPrecision(o.search.score * 100, 2) + "% match)" : "" }
+                                <a href={ o.fullUrl } target="_blank" rel="noreferrer noopener">{ humanName((o.resource as fhir4.Patient)) }<i className="bi bi-box-arrow-up-right ms-1 me-3"/></a>
+                                <span className="small text-muted">{ o.search?.score ? " (" + roundToPrecision(o.search.score * 100, 2) + "% match)" : "" }</span>
                             </li>
                         )) }
                         </ul>

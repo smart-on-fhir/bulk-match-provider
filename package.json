@@ -2,20 +2,31 @@
   "name": "bulk-match-provider",
   "version": "1.0.0",
   "description": "Bulk Match Provider",
-  "app": "./app/index.html",
+  "app": "./src/app/index.html",
   "scripts": {
-    "start": "npm run clean && parcel build --target app && ts-node --transpile-only ./src/index.ts",
-    "start:watch": "nodemon -e ts -x 'npm run start'",
+    "start:app": "NODE_ENV=development parcel serve --target app --port 3457 --no-cache",
+    "build:app": "parcel build --target app --no-cache",
+    "clean:app": "rm -rf ./dist/*",
+    
+    
+    "start:server": "ts-node --transpile-only ./src/index.ts",
+    "watch:server": "nodemon -w ./src -e ts,json -x 'npm run start:server'",
+    "clean:server": "rm -rf ./jobs/*.json",
+    
+    "dev"  : "npm run clean:app && concurrently npm:start:app npm:watch:server",
+    "start": "npm run clean:app && npm run build:app && npm run start:server",
+    
     "test": "DOTENV_CONFIG_PATH=.env.test nyc --reporter=lcov mocha -r ts-node/register",
     "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'",
-    "start:app": "parcel --target",
-    "clean": "rm -rf ./app/dist/*"
+    
+    
+    "deprecated:watch:app": "NODE_ENV=development parcel watch --target app --port 3457",
+    "deprecated:build:server": ""
   },
   "targets": {
-    "main": false,
     "app": {
-      "source": "./app/index.html",
-      "distDir": "./app/dist",
+      "source": "./src/app/index.html",
+      "distDir": "./dist",
       "context": "browser",
       "outputFormat": "global",
       "isLibrary": false
@@ -38,6 +49,7 @@
   "dependencies": {
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
+    "concurrently": "^8.2.2",
     "constants-browserify": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

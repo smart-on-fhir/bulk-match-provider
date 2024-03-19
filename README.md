@@ -32,3 +32,21 @@ Note that in FHIR the [birthDate](https://hl7.org/fhir/R4/patient-definitions.ht
 can also be loosely specified as `YYYY` or `YYYY-MM`. This means that, for example,
 we would match all of the following dates as equal: `2020`, `2020-01`, `2020-01-01`, `2020-01-01T10:12:34`
 
+## Running the app
+Running locally for development:
+```
+nmp run dev
+``
+This will:
+- Delete previous builds of the app (if any)
+- Start a hot reloading server for the app at http://localhost:3457/
+- Start a reloading server for the backend at http://localhost:3456/. Note that
+  this one will aso serve the app but any changes in the app's source code will
+  not be applied without refreshing the page.
+
+
+In development just make sure you have the `NODE_ENV` environment variable set
+to production and then call:
+```
+nmp run dev
+``
