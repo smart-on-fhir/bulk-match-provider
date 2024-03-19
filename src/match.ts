@@ -33,7 +33,7 @@ export function getCertainty(score: number)
     return "certainly-not"
 }
 
-export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[])
+export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[], baseUrl: string)
 {
     const out: fhir4.BundleEntry[] = []
     return dataSet.reduce((prev, resource) => {
@@ -41,7 +41,7 @@ export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[]
         const code  = getCertainty(score)
         if (code !== "certainly-not") {
             prev.push({
-                fullUrl: "TODO: fullUrl",
+                fullUrl: `${baseUrl}/fhir/${resource.resourceType}/${resource.id}`,
                 resource,
                 search: {
                     extension: [{

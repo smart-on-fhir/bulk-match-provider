@@ -112,7 +112,7 @@ export default class Job
     }
 
     async matchOne(input: Partial<fhir4.Patient>) {
-        const result = matchAll(input, patients)
+        const result = matchAll(input, patients, this.baseUrl)
         if (result.length > 0) {
             const bundle: fhir4.Bundle = {
                 resourceType: "Bundle",

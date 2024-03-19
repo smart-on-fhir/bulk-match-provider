@@ -24,13 +24,13 @@ app.use(json());
 app.use(["/:sim/fhir", "/fhir"], FHIRRouter)
 
 // get job status
-app.get("/jobs/:id/status", asyncRouteWrap(Gateway.checkStatus))
+app.get(["/:sim/jobs/:id/status", "/jobs/:id/status"], asyncRouteWrap(Gateway.checkStatus))
 
 // abort/delete job (bulk data like)
-app.delete("/jobs/:id/status", asyncRouteWrap(Gateway.abort))
+app.delete(["/:sim/jobs/:id/status", "/jobs/:id/status"], asyncRouteWrap(Gateway.abort))
 
 // download bulk file
-app.get("/jobs/:id/files/:file", asyncRouteWrap(Gateway.downloadFile))
+app.get(["/:sim/jobs/:id/files/:file", "/jobs/:id/files/:file"], asyncRouteWrap(Gateway.downloadFile))
 
 // proprietary: view job by ID
 app.get("/jobs/:id", asyncRouteWrap(Gateway.getJob))
@@ -39,10 +39,10 @@ app.get("/jobs/:id", asyncRouteWrap(Gateway.getJob))
 app.get("/jobs", asyncRouteWrap(Gateway.listJobs))
 
 // Static files for the web app
-app.use(express.static(join(__dirname, "../app/dist/")));
+app.use(express.static(join(__dirname, "../dist/")));
 
 // The web app
-app.get(["/", "/index.html"], (req, res) => res.sendFile("index.html", { root: join(__dirname, "../app/dist/") }));
+app.get(["/", "/index.html"], (req, res) => res.sendFile("index.html", { root: join(__dirname, "../dist/") }));
 
 // Global error 404 handler
 app.use((req: Request, res: Response) => {
