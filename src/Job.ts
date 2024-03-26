@@ -15,16 +15,11 @@ import {
     writeFile
 } from "fs/promises"
 
-export enum JobStatus {
-    PENDING     = "PENDING",
-    WORKING     = "WORKING",
-    DOWNLOADING = "DOWNLOADING",
-    COMPLETED   = "COMPLETED"
-}
-
 
 export default class Job
 {
+    private static instances: Record<string, Job> = {}
+
     /**
      * Unique ID for this job
      */
@@ -36,13 +31,17 @@ export default class Job
 
     protected createdAt: number = 0;
 
-    protected completedAt: number = 0;
+    public completedAt: number = 0;
 
-    percentage: number = 0; 
+    protected _percentage: number = 0;
 
-    protected status: JobStatus = JobStatus.PENDING
+    public notBefore: number = 0;
 
-    manifest: app.MatchManifest = {
+    protected abortController: AbortController;
+
+    public error: string = "";
+
+    public manifest: app.MatchManifest = {
         transactionTime    : "",
         request            : "",
         requiresAccessToken: false,
@@ -60,6 +59,8 @@ export default class Job
         this.id = _jobId || crypto.randomBytes(8).toString("hex")
         this.createdAt = Date.now()
         this.path = Path.join(config.jobsDir, this.id)
+        this.abortController = new AbortController()
+        Job.instances[this.id] = this
     }
 
     static async create(baseUrl: string) {
@@ -72,73 +73,84 @@ export default class Job
         return await job.save()
     }
 
+    public get percentage() {
+        return this._percentage
+    }
+
+    public abort() {
+        this.abortController.abort()
+    }
+
     public async destroy() {
-        if (!statSync(this.path, { throwIfNoEntry: false })?.isDirectory()) {
-            throw new NotFound("Job not found")
-        }
+        this.abort()
         const release = await lock(this.path)
         await rm(this.path, { recursive: true, maxRetries: 10, force: true })
         await release()
+        delete Job.instances[this.id]
         return this;
     }
 
     async run(params: app.MatchOperationParams, options: app.MatchOperationOptions = {}) {
-        const inputPatients  = params.resource.map(r => r.resource as fhir4.Patient)
+        try {
+            const inputPatients = params.resource.map(r => r.resource as fhir4.Patient)
         
-        this.status = JobStatus.WORKING
-        await this.save()
-
-        let i = 0
-        for (const inputPatient of inputPatients) {
-            if (options.matchServer) {
-                await this.matchOneViaProxy({
-                    patient: inputPatient,
-                    onlyCertainMatches: params.onlyCertainMatches,
-                    count: params.count
-                })
-            } else {
-                await wait(config.jobThrottle)
-                await this.matchOne(inputPatient)
-                this.percentage = Math.floor(++i / inputPatients.length * 100)
+            let i = 0
+            for (const inputPatient of inputPatients) {
+                if (options.matchServer) {
+                    await this.matchOneViaProxy({
+                        patient: inputPatient,
+                        onlyCertainMatches: params.onlyCertainMatches,
+                        count: params.count
+                    })
+                } else {
+                    await wait(config.jobThrottle, { signal: this.abortController.signal })
+                    await this.matchOne(inputPatient)
+                }
+                this._percentage = Math.floor(++i / inputPatients.length * 100)
                 await this.save()
-                // console.log(this.percentage + "%")
             }
-        }
 
-        this.status = JobStatus.COMPLETED
-        this.percentage = 100
-        this.completedAt = Date.now()
+            this.completedAt = Date.now()
+        } catch (error) {
+            this.error = (error as Error).message
+        }
         await this.save()
     }
 
     async matchOne(input: Partial<fhir4.Patient>) {
         const result = matchAll(input, patients, this.baseUrl)
-        if (result.length > 0) {
-            const bundle: fhir4.Bundle = {
-                resourceType: "Bundle",
-                type: "searchset",
-                total: result.length,
-                entry: result
-            };
-            if (!existsSync(this.path + "/files")) {
-                await mkdir(this.path + "/files")
-            }
-            await writeFile(
-                Path.join(this.path, "/files/" + input.id + `-patient-matches.json`),
-                JSON.stringify(bundle, null, 4),
-                { flag: "w+", encoding: "utf8" }
-            );
-            this.updateManifest({
-                output: [
-                    ...this.manifest.output,
-                    {
-                        type : "Bundle",
-                        count: result.length,
-                        url  : this.baseUrl + "/jobs/" + this.id + "/files/" + input.id + `-patient-matches.json`
+        const bundle: fhir4.Bundle = {
+            resourceType: "Bundle",
+            type: "searchset",
+            total: result.length,
+            meta: {
+                extension: [{
+                    url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
+                    valueReference: {
+                        reference: `Patient/${input.id}`
                     }
-                ]
-            })
+                }]
+            },                  
+            entry: result
+        };
+        if (!this.abortController.signal.aborted && !existsSync(this.path + "/files")) {
+            await mkdir(this.path + "/files")
         }
+        await writeFile(
+            Path.join(this.path, "/files/" + input.id + `-patient-matches.ndjson`),
+            JSON.stringify(bundle) + "\n",
+            { flag: "w+", encoding: "utf8", signal: this.abortController.signal }
+        );
+        this.updateManifest({
+            output: [
+                ...this.manifest.output,
+                {
+                    type : "Bundle",
+                    count: result.length,
+                    url  : this.baseUrl + "/jobs/" + this.id + "/files/" + input.id + `-patient-matches.ndjson`
+                }
+            ]
+        })
     }
 
     async matchOneViaProxy({ patient, onlyCertainMatches, count }: {
@@ -171,6 +183,7 @@ export default class Job
         const res = await fetch("http://hapi.fhir.org/baseR4/Patient/$match", {
             method : "POST",
             body: JSON.stringify(body),
+            signal: this.abortController.signal,
             headers: {
                 "Content-Type": "application/json",
                 // accept: "application/fhir+ndjson"
@@ -190,50 +203,51 @@ export default class Job
     public toJSON() {
         return {
             id            : this.id,
-            status        : this.status,
             createdAt     : this.createdAt,
             completedAt   : this.completedAt,
-            percentage    : this.percentage,
+            _percentage   : this._percentage,
             manifest      : this.manifest,
+            notBefore     : this.notBefore,
+            error         : this.error,
             // parameters    : this.parameters,
             // authorizations: this.authorizations,
         }
     }
 
     public async save() {
-        // console.log(`Saving ${this.path}`)
-        const release = await lock(this.path)
-        if (!existsSync(this.path)) {
-            await mkdir(this.path)
-        }
+        if (!this.abortController.signal.aborted) {
+            const release = await lock(this.path)
+            if (!existsSync(this.path)) {
+                await mkdir(this.path)
+            }
 
-        await writeFile(
-            Path.join(this.path, `job.json`),
-            JSON.stringify(this, null, 4),
-            { flag: "w+", encoding: "utf8" }
-        );
-        await release()
+            const json = JSON.stringify(this.toJSON(), null, 4)
+
+            await writeFile(
+                Path.join(this.path, `job.json`),
+                json,
+                { flag: "w+", encoding: "utf8", signal: this.abortController.signal }
+            );
+            await release()
+        }
         return this;
     }
 
     public static async destroyIfNeeded(id: string) {
         const job = await Job.byId(id)
-        switch (job.status) {
-            case JobStatus.COMPLETED:
-                if (Date.now() - job.completedAt > config.completedJobLifetimeMinutes * 60_000) {
-                    await job.destroy()
-                }
-            break;
-            case JobStatus.PENDING:
-            case JobStatus.WORKING:
-                if (Date.now() - job.createdAt > config.jobMaxLifetimeMinutes * 60_000) {
-                    await job.destroy()
-                }
-            break;
+        if (job.percentage === 100) {
+            if (Date.now() - job.completedAt > config.completedJobLifetimeMinutes * 60_000) {
+                await job.destroy()
+            }
+        }
+        else if (Date.now() - job.createdAt > config.jobMaxLifetimeMinutes * 60_000) {
+            await job.destroy()
         }
     }
 
     public static async byId(id: string) {
+        const job = Job.instances[id] || new Job(id)
+
         const path = Path.join(config.jobsDir, id, "job.json")
 
         if (!statSync(path, { throwIfNoEntry: false })?.isFile()) {
@@ -260,7 +274,6 @@ export default class Job
         }
         
         try {
-            var job = new Job(json.id)
             Object.assign(job, json)
         } catch (e) {
             await release()
@@ -268,6 +281,7 @@ export default class Job
         }
         
         await release()
+        
         return job
     }
 }

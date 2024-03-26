@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { flatNames, match, matchAddress, matchDOB, matchEmail, matchGender, matchName, matchPhone } from "../../src/match"
 import patients from "../../src/patients"
+import "../init-tests"
 
 
 describe("flatNames", () => {

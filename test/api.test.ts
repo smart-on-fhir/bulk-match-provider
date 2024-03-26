@@ -5,6 +5,8 @@ import run        from "../src/index"
 import config     from "../src/config"
 import { wait } from "../src/lib"
 import moment from "moment"
+import patients from "../src/patients"
+import "./init-tests"
 
 
 async function match(baseUrl: string, {
@@ -56,6 +58,31 @@ async function match(baseUrl: string, {
     })
 }
 
+function expectOperationOutcome(json: any, {
+    severity,
+    code,
+    diagnostics
+}: {
+    severity?: string
+    code?: number
+    diagnostics?: string | RegExp
+} = {}) {
+    assert.equal(json.resourceType, "OperationOutcome")
+    if (severity) {
+        assert.equal(json.issue[0].severity, severity)
+    }
+    if (code) {
+        assert.equal(json.issue[0].code, code)
+    }
+    if (diagnostics) {
+        if (diagnostics instanceof RegExp) {
+            assert.match(json.issue[0].diagnostics || "", diagnostics)
+        } else {
+            assert.equal(json.issue[0].diagnostics, diagnostics)
+        }
+    }
+}
+
 describe("API", () => {
 
     let server : Server
@@ -97,8 +124,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, "If used, the accept header must be 'application/fhir+ndjson'")
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "If used, the accept header must be 'application/fhir+ndjson'"
+            })
         })
 
         it ("Rejects invalid prefer header", async () => {
@@ -111,8 +141,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, "If used, the prefer header must be 'respond-async'")
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "If used, the prefer header must be 'respond-async'"
+            })
         })
 
         it ("Rejects missing parameters body", async () => {
@@ -122,8 +155,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, "Invalid Parameters resource")
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "Invalid Parameters resource"
+            })
         })
 
         it ("Rejects invalid parameters body", async () => {
@@ -134,16 +170,22 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, "Invalid Parameters resource")
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "Invalid Parameters resource"
+            })
         })
 
         it ("Rejects empty resource parameters", async () => {
             const res = await match(baseUrl)
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, "At least one resource parameter must be provided")
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "At least one resource parameter must be provided"
+            })
         })
 
         it ("Rejects too many resources", async () => {
@@ -157,10 +199,13 @@ describe("API", () => {
                         { resourceType: "Patient", id: 3 },
                     ]
                 })
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 413)
                 const json = await res.json()
-                assert.equal(json.statusCode, 400)
-                assert.match(json.message, /Cannot use more than 2 resource parameters/)
+                expectOperationOutcome(json, {
+                    severity: 'error',
+                    code: 413,
+                    diagnostics: /Cannot use more than 2 resource parameters/
+                })
             } catch (ex) {
                 throw ex
             } finally {
@@ -174,8 +219,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, "resource[0] does not appear to be a Patient resource")
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "resource[0] does not appear to be a Patient resource"
+            })
         })
 
         it ("Rejects Patient resources without IDs", async () => {
@@ -187,8 +235,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, 'resource[1] is required to have an "id" attribute')
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: 'resource[1] is required to have an "id" attribute'
+            })
         })
 
         it ("Validates the onlySingleMatch parameter", async () => {
@@ -198,8 +249,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, 'Only boolean values are accepted for the onlySingleMatch parameter')
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: 'Only boolean values are accepted for the onlySingleMatch parameter'
+            })
         })
         
         it ("Validates the onlyCertainMatches parameter", async () => {
@@ -209,8 +263,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, 'Only boolean values are accepted for the onlyCertainMatches parameter')
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: 'Only boolean values are accepted for the onlyCertainMatches parameter'
+            })
         })
 
         it ("Validates the count parameter", async () => {
@@ -220,8 +277,11 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, 'Only integers grater than 0 are accepted for the count parameter')
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: 'Only integers grater than 0 are accepted for the count parameter'
+            })
         })
 
         it ("Validates the _outputFormat parameter", async () => {
@@ -231,8 +291,13 @@ describe("API", () => {
             })
             assert.equal(res.status, 400)
             const json = await res.json()
-            assert.equal(json.statusCode, 400)
-            assert.equal(json.message, "If used, the _outputFormat parameter must be one of 'application/fhir+ndjson', 'application/ndjson' or 'ndjson'")
+            // assert.equal(json.statusCode, 400)
+            // assert.equal(json.message, "If used, the _outputFormat parameter must be one of 'application/fhir+ndjson', 'application/ndjson' or 'ndjson'")
+            expectOperationOutcome(json, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "If used, the _outputFormat parameter must be one of 'application/fhir+ndjson', 'application/ndjson' or 'ndjson'"
+            })
         })
 
         it ("Works", async () => {
@@ -261,50 +326,56 @@ describe("API", () => {
 
         it ("Works", async () => {
 
-            const startDate = moment()
+            const origRetryAfter = config.retryAfter
+            try {
+                config.retryAfter = 100
+                const startDate = moment()
 
-            const res = await match(baseUrl, {
-                resource: [
-                    { resourceType: "Patient", id: "#1" },
-                    { resourceType: "Patient", id: "#2" },
-                    { resourceType: "Patient", id: "#3" },
-                ]
-            })
+                const res = await match(baseUrl, {
+                    resource: [
+                        { resourceType: "Patient", id: "#1" },
+                        { resourceType: "Patient", id: "#2" },
+                        { resourceType: "Patient", id: "#3" },
+                    ]
+                })
 
-            assert.equal(res.status, 202)
+                assert.equal(res.status, 202)
 
-            const statusUrl = res.headers.get("content-location")
+                const statusUrl = res.headers.get("content-location")
 
-            const res2 = await fetch(statusUrl + "")
-            assert.equal(res2.status, 202)
-            assert.equal(res2.headers.get("x-progress"), "0% complete")
-            assert.equal(res2.headers.get("retry-after"), "300")
+                const res2 = await fetch(statusUrl + "")
+                assert.equal(res2.status, 202)
+                assert.equal(res2.headers.get("x-progress"), "0% complete")
+                assert.equal(res2.headers.get("retry-after"), "1")
 
-            await wait(100)
+                await wait(config.jobThrottle + 10 - config.throttle)
 
-            const res3 = await fetch(statusUrl + "")
-            assert.equal(res3.status, 202)
-            assert.equal(res3.headers.get("x-progress"), "33% complete")
-            assert.equal(res3.headers.get("retry-after"), "300")
+                const res3 = await fetch(statusUrl + "")
+                assert.equal(res3.status, 202)
+                assert.equal(res3.headers.get("x-progress"), "33% complete")
+                assert.equal(res3.headers.get("retry-after"), "1")
 
-            await wait(100)
+                await wait(config.jobThrottle + 10 - config.throttle)
 
-            const res4 = await fetch(statusUrl + "")
-            assert.equal(res4.status, 202)
-            assert.equal(res4.headers.get("x-progress"), "66% complete")
-            assert.equal(res4.headers.get("retry-after"), "300")
+                const res4 = await fetch(statusUrl + "")
+                assert.equal(res4.status, 202)
+                assert.equal(res4.headers.get("x-progress"), "66% complete")
+                assert.equal(res4.headers.get("retry-after"), "1")
 
-            await wait(100)
+                await wait(config.jobThrottle + 10 - config.throttle)
 
-            const res5 = await fetch(statusUrl + "")
-            assert.equal(res5.status, 200)
-            const json = await res5.json()
-            
-            assert.ok(moment(json.transactionTime).isSame(startDate, "minute"))
-            assert.equal(json.request, `${baseUrl}/fhir/Patient/$bulk-match`)
-            assert.equal(json.requiresAccessToken, false)
-            assert.deepEqual(json.error, [])
-            assert.ok(Array.isArray(json.output))
+                const res5 = await fetch(statusUrl + "")
+                assert.equal(res5.status, 200)
+                const json = await res5.json()
+                
+                assert.ok(moment(json.transactionTime).isSame(startDate, "minute"))
+                assert.equal(json.request, `${baseUrl}/fhir/Patient/$bulk-match`)
+                assert.equal(json.requiresAccessToken, false)
+                assert.deepEqual(json.error, [])
+                assert.ok(Array.isArray(json.output))
+            } finally {
+                config.retryAfter = origRetryAfter
+            }
         })
     })
 
@@ -347,7 +418,7 @@ describe("API", () => {
 
             assert.equal(res.status, 202)
             const statusUrl = res.headers.get("content-location")
-            await wait(200)
+            await wait(config.retryAfter - config.throttle)
             const manifest = await (await fetch(statusUrl + "")).json()
 
             assert.equal(manifest.output.length, 1)
@@ -374,7 +445,7 @@ describe("API", () => {
         })
     })
 
-    describe("Get one jobs", () => {
+    describe("Get one job", () => {
         it ("Works", async () => {
             const res       = await match(baseUrl, { resource: [ { resourceType: "Patient", id: "#1" } ] })
             const statusUrl = res.headers.get("content-location") + ""
@@ -409,5 +480,22 @@ describe("API", () => {
             assert.equal(res3.status, 404)
             assert.match(txt3, /Job not found/)
         })
+    })
+
+    it ("Get all patients", async () => {
+        const res = await fetch(`${baseUrl}/fhir/Patient`)
+        assert.equal(res.status, 200)
+        assert.match(res.headers.get("content-type")!, /\bjson\b/)
+    })
+
+    it ("Get patient by id", async () => {
+        const res = await fetch(`${baseUrl}/fhir/Patient/${patients[0].id}`)
+        assert.equal(res.status, 200)
+        assert.match(res.headers.get("content-type")!, /\bjson\b/)
+    })
+
+    it ("Get patient by id rejects missing IDs", async () => {
+        const res = await fetch(`${baseUrl}/fhir/Patient/whatever`)
+        assert.equal(res.status, 404)
     })
 })

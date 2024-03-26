@@ -42,5 +42,11 @@ export default {
     jobsDir: Path.join(__dirname, "..", env.NODE_ENV === "test" ? "test-jobs/" : "jobs/"),
 
     // Limits the number of instances of the resource parameter in a kickoff request
-    resourceParameterLimit: 100
+    resourceParameterLimit: 100,
+
+    // Based on how many patients we have and how fast our server is, we can set
+    // a retry delay (in milliseconds) for the status endpoint
+    retryAfter: 2000,
+
+    throttle: uInt(env.THROTTLE, 0),
 }

@@ -7,7 +7,7 @@ import { join }                                     from "path"
 import config                                       from "./config"
 import { HttpError, InternalServerError, NotFound } from "./HttpError"
 import { startChecking }                            from "./JobManager"
-import { asyncRouteWrap }                           from "./lib"
+import { asyncRouteWrap, createOperationOutcome }   from "./lib"
 import * as Gateway                                 from "./Gateway"
 import { router as FHIRRouter }                     from "./fhir" 
 
@@ -19,6 +19,10 @@ app.use(cors({ origin: true, credentials: true }))
 
 // Automatically parse incoming JSON payloads
 app.use(json());
+
+if (config.throttle) {
+    app.use((_rec, _res, next: NextFunction) => setTimeout(next, config.throttle));
+}
 
 // bulk-match and other fhir endpoints
 app.use(["/:sim/fhir", "/fhir"], FHIRRouter)
@@ -60,7 +64,9 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
     if (process.env.NODE_ENV !== "test") console.error(error);
     /* istanbul ignore next */
 
-    res.status(error.statusCode).json(error)
+    res.status(error.statusCode).json(createOperationOutcome(error.message, {
+        issueCode: error.statusCode
+    }))
 })
 
 

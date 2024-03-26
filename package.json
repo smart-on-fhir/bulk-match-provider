@@ -11,10 +11,10 @@
     
     "start:server": "ts-node --transpile-only ./src/index.ts",
     "watch:server": "nodemon -w ./src -e ts,json -x 'npm run start:server'",
-    "clean:server": "rm -rf ./jobs/*.json",
+    "clean:server": "rm -rf ./jobs/* && touch ./jobs/.gitkeep",
     
-    "dev"  : "npm run clean:app && concurrently npm:start:app npm:watch:server",
-    "start": "npm run clean:app && npm run build:app && npm run start:server",
+    "dev"  : "npm run clean:app && npm run clean:server && concurrently npm:start:app npm:watch:server",
+    "start": "npm run clean:app && npm run clean:server && npm run build:app && npm run start:server",
     
     "test": "DOTENV_CONFIG_PATH=.env.test nyc --reporter=lcov mocha -r ts-node/register",
     "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'",

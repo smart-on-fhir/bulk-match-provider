@@ -6,7 +6,7 @@ import { IncomingHttpHeaders }                             from "http"
 import config                                              from "./config"
 import Job                                                 from "./Job"
 import { createOperationOutcome, getRequestBaseURL, uInt } from "./lib"
-import { BadRequest }                                      from "./HttpError"
+import { BadRequest, PayloadTooLarge }                     from "./HttpError"
 import type app                                            from "../index"
 
 
@@ -48,13 +48,57 @@ export async function checkStatus(req: Request, res: Response) {
         return res.status(404).json(createOperationOutcome(ex))
     }
 
+    if (job.error) {
+        return res.status(500).json(createOperationOutcome(job.error,  { severity: "error" }))
+    }
+
     if (job.percentage === 100) {
-        return res.json(job.manifest)
+        return res.setHeader(
+            "Expires",
+            new Date(job.completedAt + config.completedJobLifetimeMinutes * 60_000).toUTCString()
+        ).json(job.manifest)
     }
 
     res.header("Access-Control-Expose-Headers", "X-Progress,Retry-after")
+
+    const now = Date.now()
+
+    // Our server is pretty fast. It is safe to assume that in 2 seconds the job
+    // will either be complete, or will at least have made some progress
+    const RETRY_AFTER = config.retryAfter// 2_000
+
+    // If this is not the first status check
+    if (job.notBefore) {
+        const diff = now - job.notBefore
+
+        // If the client tries too early
+        if (diff < 0) {
+            job.notBefore = now + Math.abs(diff) + RETRY_AFTER
+            const retryAfter = Math.ceil((job.notBefore - now) / 1000)
+            
+            // If excessively frequent status queries persist, the server MAY
+            // return a 429 Too Many Requests status code and terminate the session.
+            if (retryAfter > (RETRY_AFTER / 1000) * 10) {
+                await job.destroy()
+                return res.status(429).json(createOperationOutcome(
+                    "Too many requests made ignoring the retry-after header hint. Session terminated!",
+                    { severity: "fatal" }
+                ))
+            }
+
+            await job.save()
+            res.header("Retry-after", retryAfter + "")
+            return res.status(429).json(createOperationOutcome(
+                "Too many requests made. Please respect the retry-after header!",
+                { severity: "warning" }
+            ))
+        }
+    }
+
+    job.notBefore = now + RETRY_AFTER
+    await job.save()
     res.header("X-Progress" , job.percentage + "% complete")
-    res.header("Retry-after", config.jobCleanupMinutes * 60 + "")
+    res.header("Retry-after", Math.ceil(RETRY_AFTER / 1000) + "")
     res.status(202).end()
 }
 
@@ -81,11 +125,15 @@ export async function downloadFile(req: Request, res: Response) {
 }
 
 export async function kickOff(req: Request, res: Response) {
-    validateMathHeaders(req.headers)
+    validateMatchHeaders(req.headers)
     const params = getMatchParameters(req.body as fhir4.Parameters)
     const baseUrl = getRequestBaseURL(req);
     const job = await Job.create(baseUrl)
-    job.run(params)
+
+    // Don't wait for this (just start it here), but also don't crash the server
+    // if it fails!
+    job.run(params).catch(console.error)
+
     const statusUrl = `${baseUrl}/jobs/${job.id}/status`
     res.header("Content-Location", statusUrl)
     res.header("Access-Control-Expose-Headers", "Content-Location")
@@ -97,7 +145,7 @@ export async function kickOff(req: Request, res: Response) {
     )
 }
 
-function validateMathHeaders(headers: IncomingHttpHeaders) {
+function validateMatchHeaders(headers: IncomingHttpHeaders) {
 
     // console.log(headers)
     
@@ -141,7 +189,7 @@ function getMatchParameters(body: fhir4.Parameters): app.MatchOperationParams {
 
     // Can't have too many resource parameters
     if (resourceParams.length > config.resourceParameterLimit) {
-        throw new BadRequest(
+        throw new PayloadTooLarge(
             `Cannot use more than ${config.resourceParameterLimit} resource ` +
             `parameters. Please use multiple $bulk-match calls to match more resources`
         )

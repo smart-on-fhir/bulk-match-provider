@@ -87,9 +87,32 @@ export function htmlEncode(html: string): string {
         .replace(/"/g, "&quot;");
 }
 
-export function wait(ms: number, { unref }: { unref?: boolean } = {}) {
+export function wait(ms: number, { unref, signal }: {
+    unref ?: boolean
+    signal?: AbortSignal
+} = {}): Promise<void> {
+
+    // If waiting is aborted resolve immediately
+    if (signal?.aborted) {
+        return Promise.resolve()
+    }
+
     return new Promise(resolve => {
-        const timer = setTimeout(resolve, ms);
+        
+        const timer = setTimeout(doResolve, ms);
+
+        function doResolve() {
+            clearTimeout(timer)
+            if (signal) {
+                signal.removeEventListener("abort", doResolve)
+            }
+            resolve()
+        }
+
+        if (signal) {
+            signal.addEventListener("abort", doResolve)
+        }
+
         if (unref) {
             timer.unref()
         }
