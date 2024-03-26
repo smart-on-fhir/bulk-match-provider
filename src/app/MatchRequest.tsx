@@ -1,28 +1,142 @@
 import { FormEvent } from "react"
+import {
+    State,
+    StateModifier,
+    abort,
+    addRequest,
+    kickOffError,
+    kickOffStart,
+    kickOffSuccess,
+    updateKickOff,
+    updateRequest
+} from "./State"
 
 
-interface MatchRequestState {
-    onlySingleMatch   : boolean
-    onlyCertainMatches: boolean
-    count            ?: number
-    resources         : string//(Partial<fhir4.Patient>)[]
-    baseUrl           : string
-    // loading           : boolean
-    // _outputFormat    ?: string
-}
+export default function MatchRequest({ state, dispatch }: { state: State, dispatch: React.Dispatch<StateModifier> }) {
+    const {
+        matchRequest: {
+            baseUrl,
+            onlySingleMatch,
+            onlyCertainMatches,
+            count,
+            resources,
+        },
+        statusURL,
+        manifest,
+        canceled
+    } = state
 
-export default function MatchRequest({
-    state,
-    onChange,
-    onSubmit
-}: {
-    state: MatchRequestState,
-    onChange: (patch: Partial<MatchRequestState>) => void,
-    onSubmit: (e: FormEvent) => Promise<any>
-}) {
-    const { baseUrl, onlySingleMatch, onlyCertainMatches, count, resources } = state
+    async function sendMatchRequest(e: FormEvent) {
+
+        e.preventDefault()
+
+        const url = new URL("Patient/$bulk-match", baseUrl + "")
+
+        const body: fhir4.Parameters = {
+            resourceType: "Parameters",
+            parameter: []
+        }
+
+        try {
+            var patients = JSON.parse(resources + "")
+        } catch (error) {
+            return dispatch(kickOffError(error))
+        }
+
+        if (patients) {
+            patients.forEach((p: any) => body.parameter!.push({ name: "resource", resource: p }))
+        }
+    
+        body.parameter!.push({ name: "onlySingleMatch"   , valueBoolean: onlySingleMatch    })
+        body.parameter!.push({ name: "onlyCertainMatches", valueBoolean: onlyCertainMatches })
+        
+        if (count) {
+            body.parameter!.push({ name: "count", valueInteger: count })
+        }
+    
+        // if (_outputFormat) {
+        //     body.parameter!.push({ name: "_outputFormat", valueString: _outputFormat })
+        // }
+
+        const fetchOptions = {
+            method : "POST",
+            body: JSON.stringify(body, null, 4),
+            headers: {
+                "Content-Type": "application/json",
+                accept: "application/fhir+ndjson"
+            }
+        }
+
+        dispatch(kickOffStart())
+
+        dispatch(addRequest({
+            id      : "kick-off-request",
+            label   : "Kick-off Request",
+            url     : url.toString(),
+            loading : true,
+            options : fetchOptions,
+            requestBody: body
+            // error  ?: Error | string | null
+            // result ?: ConsumedResponse
+        }))
+
+        try {
+            const res = await fetch(url, fetchOptions)
+
+            const json = await res.json()
+            
+            dispatch(kickOffSuccess(res, json))
+            dispatch(updateRequest("kick-off-request", {
+                loading: false,
+                error: null,
+                result: {
+                    response  : res,
+                    payload   : json,
+                    receivedAt: Date.now()
+                }
+            }))
+            
+        } catch (ex) {
+            dispatch(kickOffError(ex))
+            dispatch(updateRequest("kick-off-request", {
+                loading: false,
+                error: ex,
+                result: {
+                    // response  : res,
+                    // payload   : json,
+                    receivedAt: Date.now()
+                }
+            }))
+        }
+    }
+
+    function cancel() {
+        const options = { method: "DELETE" }
+        dispatch(addRequest({
+            id      : "cancelation-request",
+            label   : "Cancelation Request",
+            url     : statusURL,
+            loading : true,
+            options
+        }))
+        fetch(statusURL!, options).then(res => {
+            return res.json().then(payload => {
+                dispatch(updateRequest("cancelation-request", {
+                    loading: false,
+                    result: { response: res, payload }
+                }))
+                dispatch(abort())
+            }, error => {
+                dispatch(updateRequest("cancelation-request", {
+                    loading: false,
+                    error: error
+                }))
+            })
+        })
+    }
+
     return (
-        <form onSubmit={onSubmit} className="my-0">
+        <form onSubmit={sendMatchRequest} className="my-0">
             <hr className="my-0" />
             <div className="row">
                 <div className="col-lg-5">
@@ -36,7 +150,7 @@ export default function MatchRequest({
                                 id="baseUrl"
                                 placeholder="Server Base URL"
                                 value={baseUrl}
-                                onChange={ e => onChange({ baseUrl: e.target.value }) }
+                                onChange={ e => dispatch(updateKickOff({ baseUrl: e.target.value })) }
                                 readOnly
                             />
                         </div>
@@ -49,7 +163,7 @@ export default function MatchRequest({
                                         className="form-check-input"
                                         type="checkbox"
                                         checked={ onlySingleMatch }
-                                        onChange={ e => onChange({ onlySingleMatch: e.target.checked }) }
+                                        onChange={ e => dispatch(updateKickOff({ onlySingleMatch: e.target.checked })) }
                                     />
                                     Only Single Match
                                 </label>
@@ -62,7 +176,7 @@ export default function MatchRequest({
                                         className="form-check-input"
                                         type="checkbox"
                                         checked={ onlyCertainMatches }
-                                        onChange={ e => onChange({ onlyCertainMatches: e.target.checked }) }
+                                        onChange={ e => dispatch(updateKickOff({ onlyCertainMatches: e.target.checked })) }
                                     />
                                     Only Certain Matches
                                 </label>
@@ -84,7 +198,7 @@ export default function MatchRequest({
                                 id="count"
                                 min={1}
                                 value={ count || "" }
-                                onChange={ e => onChange({ count: e.target.valueAsNumber }) }
+                                onChange={ e => dispatch(updateKickOff({ count: e.target.valueAsNumber })) }
                             />
                         </div>
                     </div>
@@ -97,7 +211,7 @@ export default function MatchRequest({
                         rows={8}
                         id="resources"
                         value={ resources }
-                        onChange={ e => onChange({ resources: e.target.value }) }
+                        onChange={ e => dispatch(updateKickOff({ resources: e.target.value })) }
                         style={{ fontFamily: "monospace", fontSize: "90%" }}
                     />
                 </div>
@@ -106,7 +220,15 @@ export default function MatchRequest({
             <div className="row my-4">
                 <div className="col">
                     <div className="text-center bg-light p-2 rounded-bottom">
-                        <button className="btn btn-primary">Send <b>Bulk-Match</b> Request</button>
+                        <button className="btn btn-primary">
+                            { manifest ? <>Resend <b>Bulk-Match</b> Request</> : <>Send <b>Bulk-Match</b> Request</> }
+                        </button>
+                        { statusURL && !canceled && <button
+                            className="ms-2 px-4 btn btn-danger"
+                            type="button"
+                            onClick={cancel}
+                            >{ manifest ? "Delete Job" : "Cancel" }</button>
+                        }
                     </div>
                 </div>
             </div>
