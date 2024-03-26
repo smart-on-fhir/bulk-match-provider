@@ -10,6 +10,8 @@ import { startChecking }                            from "./JobManager"
 import { asyncRouteWrap, createOperationOutcome }   from "./lib"
 import * as Gateway                                 from "./Gateway"
 import { router as FHIRRouter }                     from "./fhir" 
+import { smartConfig }                              from "./WellKnown"
+import { keyGenerator }                             from "./keyGenerator"
 
 
 const app = express()
@@ -23,6 +25,11 @@ app.use(json());
 if (config.throttle) {
     app.use((_rec, _res, next: NextFunction) => setTimeout(next, config.throttle));
 }
+
+// .well-known/smart-configuration
+app.get("/.well-known/smart-configuration", smartConfig)
+
+app.get("/generate-jwk", keyGenerator)
 
 // bulk-match and other fhir endpoints
 app.use(["/:sim/fhir", "/fhir"], FHIRRouter)
