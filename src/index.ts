@@ -49,6 +49,9 @@ app.get("/jobs/:id", asyncRouteWrap(Gateway.getJob))
 // proprietary: list all jobs
 app.get("/jobs", asyncRouteWrap(Gateway.listJobs))
 
+// Static
+app.use(express.static(join(__dirname, "../static/")));
+
 // Static files for the web app
 app.use(express.static(join(__dirname, "../dist/")));
 
