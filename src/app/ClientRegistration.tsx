@@ -1,5 +1,8 @@
 import { FormEvent, useState } from "react"
-import { BACKEND_BASE_URL } from "./State"
+// import { BACKEND_BASE_URL } from "./State"
+export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ?
+    window.location.origin :
+    "http://127.0.0.1:3456"
 
 async function copy(txt: string) {
     try {
@@ -89,9 +92,9 @@ export default function ClientRegistration() {
         <form onSubmit={onSubmit} className="mb-5">
             { error && <div className="alert alert-danger">{ error + "" }</div> }
             
-            <h5><i className="bi bi-shield-lock text-primary" /> Public Key</h5>
-            <hr />
-            <div className="row">
+            <h5 className="text-primary"><i className="bi bi-shield-lock" /> Public Key</h5>
+            <div className="my-2 bg-primary-subtle" style={{ height: 2 }} />
+            <div className="row mt-3">
                 <div className="col-lg-6 mb-5">
                     <div className="form-check mb-3">
                         <label className="form-check-label">
@@ -119,7 +122,7 @@ export default function ClientRegistration() {
                     { keyType === "url" && <>
                         <label htmlFor="jwks-url" className="form-label">JWKS URL</label>
                         <input type="url" className="form-control" id="jwks-url" value={jwksUrl} onChange={e => setJwksUrl(e.target.value)} placeholder="https://yourdomain.com/your-public-jwks.json" />
-                        <div className="form-text">
+                        <div className="form-text small">
                             This URL communicates the TLS-protected endpoint where the client's public JWK Set can
                             be found. This endpoint SHALL be accessible without client authentication or authorization.
                             Allows a client to rotate its own keys by updating the hosted content at the JWK Set URL and
@@ -140,7 +143,7 @@ export default function ClientRegistration() {
                     { keyType === "sample" && <>
                         <div className="input-group">
                             <span className="input-group-text">Key Type:</span>
-                            <select className="form-control" value={sampleAlg} onChange={e => setSampleAlg(e.target.value as any)}>
+                            <select className="form-select" value={sampleAlg} onChange={e => setSampleAlg(e.target.value as any)}>
                                 <option value="ES384">ES384</option>
                                 <option value="RS384">RS384</option>
                             </select>
@@ -161,12 +164,12 @@ export default function ClientRegistration() {
                     </> }
                 </div>
             </div>
-            <h5><i className="bi bi-gear text-primary" /> Advanced</h5>
-            <hr />
-            <div className="my-4 row">
+            <h5 className="text-primary"><i className="bi bi-gear" /> Advanced</h5>
+            <div className="my-2 bg-primary-subtle" style={{ height: 2 }} />
+            <div className="mb-4 mt-3 row">
                 <div className="col">
                     <label htmlFor="err" className="form-label">Simulated Error</label>
-                    <select className="form-control" value={err} onChange={e => setErr(e.target.value)}>
+                    <select className="form-select" value={err} onChange={e => setErr(e.target.value)}>
                         <option value="">None</option>
                         <option value="expired_registration_token">Expired registration token</option>
                         <option value="invalid_scope">Invalid scope</option>
@@ -177,7 +180,7 @@ export default function ClientRegistration() {
                 </div>
                 <div className="col">
                     <label htmlFor="dur" className="form-label">Access Token Lifetime</label>
-                    <select className="form-control" value={dur} onChange={e => setDur(+e.target.value)}>
+                    <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
                         <option value={1}>1 minute</option>
                         <option value={5}>5 minutes</option>
                         <option value={15}>15 minutes</option>
@@ -201,51 +204,18 @@ export default function ClientRegistration() {
                     <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => setDuplicates(e.target.valueAsNumber)} min={0} max={50} step={5} />
                 </div>
             </div>
-            <hr />
+            <div className="my-4 bg-primary-subtle" style={{ height: 2 }} />
             <div className="mb-3 text-center">
-                <button type="submit" className="btn btn-primary px-4" disabled={cannotSubmit}>Register</button>
+                <button type="submit" className="btn btn-primary px-4 bg-gradient" disabled={cannotSubmit}>Register</button>
             </div>
             <div className="d-flex justify-content-between mb-1">
                 <b>Your Client ID:</b>
                 <span
                     className="copy-btn"
-                    onClick={(e) => copy(assertion).then(() => {
-                        // const icon = e.target.querySelector("i")
-                        // icon.className = "bi bi-clipboard-check-fill text-success"
-                        // setTimeout(() => {
-                        //     icon.className = "bi bi-clipboard-check"
-                        // }, 500)
-                        // // style.transform = e.target.style.transform ? "" : "scale(-1)"
-                    })}
-                    // style={{cursor: "pointer", transition: "all 1s" }}
+                    onClick={() => copy(assertion)}
                 >Copy <i className="bi bi-clipboard-check" /></span>
             </div>
             <textarea className="form-control text-primary-emphasis form-control-sm" rows={4} defaultValue={assertion} readOnly/>
-            {/* <code className="small">{assertion}</code> */}
         </form>
     )
 }
-
-// function copyButton() {
-
-//     const [ active ]
-
-//     const onClick = () => {
-
-//     }
-
-//     return (
-//         <span
-//             className="text-secondary"
-//             onClick={(e) => copy(assertion).then(() => {
-//                 const icon = e.target.querySelector("i")
-//                 icon.className = "bi bi-clipboard-check-fill text-success"
-//                 setTimeout(() => {
-//                     icon.className = "bi bi-clipboard-check"
-//                 }, 500)
-//                 // style.transform = e.target.style.transform ? "" : "scale(-1)"
-//             })}
-//             style={{cursor: "pointer", transition: "all 1s" }}
-//         >Copy <i className="bi bi-clipboard-check" /></span>
-//     )
-// }

@@ -1,4 +1,7 @@
-import { BACKEND_BASE_URL } from "./State";
+// import { BACKEND_BASE_URL } from "./State";
+export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ?
+    window.location.origin :
+    "http://127.0.0.1:3456"
 
 
 function NewTabLink({ href }: { href: string }) {
@@ -11,7 +14,7 @@ function NewTabLink({ href }: { href: string }) {
 
 export default function ServerInfo() {
     return (
-        <div>
+        <div className="py-4">
             <dl>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Bulk Patient Matching Endpoint</dt>
                 <dd className="mb-4">

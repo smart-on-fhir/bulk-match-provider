@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { MatchManifest } from "../.."
+import { MatchManifest } from "../../.."
 import Collapse from "./Collapse"
 import { roundToPrecision } from "./lib"
 

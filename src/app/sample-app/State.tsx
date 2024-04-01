@@ -1,4 +1,4 @@
-import { MatchManifest } from "../.."
+import { MatchManifest } from "../../.."
 import { Preset } from "./presets"
 
 export interface Request {

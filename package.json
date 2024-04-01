@@ -4,8 +4,8 @@
   "description": "Bulk Match Provider",
   "app": "./src/app/index.html",
   "scripts": {
-    "start:app": "NODE_ENV=development parcel serve --target app --port 3457 --no-cache",
-    "build:app": "parcel build --target app --no-cache",
+    "start:app": "NODE_ENV=development parcel serve --target app --target sample-app --port 3457 --no-cache",
+    "build:app": "parcel build --target app --target sample-app --no-cache",
     "clean:app": "rm -rf ./dist/*",
     "start:server": "ts-node --transpile-only ./src/index.ts",
     "watch:server": "nodemon -w ./src -e ts,json -x 'npm run start:server'",
@@ -14,13 +14,20 @@
     "start": "npm run clean:app && npm run clean:server && npm run build:app && npm run start:server",
     "test": "DOTENV_CONFIG_PATH=.env.test nyc --reporter=lcov mocha -r ts-node/register",
     "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'",
-    "deprecated:watch:app": "NODE_ENV=development parcel watch --target app --port 3457",
+    "deprecated:watch:app": "NODE_ENV=development parcel watch --target app --target sample-app --port 3457",
     "deprecated:build:server": ""
   },
   "targets": {
     "app": {
       "source": "./src/app/index.html",
       "distDir": "./dist",
+      "context": "browser",
+      "outputFormat": "global",
+      "isLibrary": false
+    },
+    "sample-app": {
+      "source": "./src/app/sample-app/index.html",
+      "distDir": "./dist/sample-app",
       "context": "browser",
       "outputFormat": "global",
       "isLibrary": false
