@@ -7,7 +7,7 @@ const { env } = process
 export default {
 
     // The port to listen on. Defaults to `0` for system-allocated port
-    port: env.PORT || 0,
+    port: uInt(env.PORT, 0),
 
     // The host to listen on. If not set defaults to "0.0.0.0"
     host: env.HOST || "0.0.0.0",
@@ -16,10 +16,10 @@ export default {
     jwtSecret: env.SECRET || "this is our patient matching secret",
 
     // Default access token lifetime in minutes
-    accessTokenLifetime: env.ACCESS_TOKEN_LIFETIME || 60,
+    accessTokenLifetime: uInt(env.ACCESS_TOKEN_LIFETIME, 60),
 
     // Default refresh token lifetime in minutes
-    refreshTokenLifeTime: env.REFRESH_TOKEN_LIFETIME || 60 * 24 * 365,
+    refreshTokenLifeTime: uInt(env.REFRESH_TOKEN_LIFETIME, 60 * 24 * 365),
     
     // Accept JWKs using the following algorithms
     supportedAlgorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],

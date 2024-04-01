@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 import { getRequestBaseURL } from "./lib"
+import config from "./config"
 
 
 export function smartConfig(req: Request, res: Response) {
@@ -15,10 +16,7 @@ export function smartConfig(req: Request, res: Response) {
         token_endpoint_auth_methods_supported: [
             "private_key_jwt"
         ],
-        token_endpoint_auth_signing_alg_values_supported: [
-            "RS384",
-            "ES384"
-        ],
+        token_endpoint_auth_signing_alg_values_supported: config.supportedAlgorithms,
         scopes_supported: [
             "system/*.rs"
         ],
