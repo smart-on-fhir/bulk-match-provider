@@ -4,6 +4,7 @@ import patients    from "./patients"
 import {
     asyncRouteWrap,
     bundle,
+    checkAuth,
     createOperationOutcome,
     getRequestBaseURL
 } from "./lib"
@@ -11,7 +12,7 @@ import {
 
 export const router = Router({ mergeParams: true })
 
-router.post("/Patient/\\$bulk-match", asyncRouteWrap(kickOff))
+router.post("/Patient/\\$bulk-match", checkAuth, asyncRouteWrap(kickOff))
 
 router.get("/Patient", (req, res) => {
     res.type("application/fhir+json; charset=utf-8")

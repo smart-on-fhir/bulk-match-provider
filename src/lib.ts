@@ -1,5 +1,13 @@
-import { NextFunction, Request, RequestHandler, Response } from "express"
+import jwt, { Algorithm }      from "jsonwebtoken" 
 import lockfile from "proper-lockfile"
+import config   from "./config"
+import type {
+    NextFunction,
+    Request,
+    RequestHandler,
+    Response
+} from "express"
+import { Unauthorized } from "./HttpError"
 
 
 export function toArray(x: any): (typeof x)[] {
@@ -145,4 +153,31 @@ export function bundle<T extends fhir4.Resource>(resources: T[], baseUrl: string
             }
         }))
     };
+}
+
+export function replyWithOAuthError(res: Response, error: string, error_description: string, code = 400) {
+    res.status(code).json({ error, error_description });
+}
+
+export function checkAuth(req: Request, res: Response, next: NextFunction)
+{
+    if (req.headers.authorization) {
+        try {
+            var token = jwt.verify(
+                req.headers.authorization.split(" ")[1],
+                config.jwtSecret,
+                { algorithms: config.supportedAlgorithms as Algorithm[] }
+            );
+        } catch (e) {
+            throw new Unauthorized("Invalid token " + (e as Error).message);
+        }
+
+        // @ts-ignore
+        let error = token.err || token.sim_error || token.auth_error;
+        if (error) {
+            return res.status(401).send(error);
+        }
+    }
+
+    next();
 }

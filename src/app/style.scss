@@ -18,3 +18,16 @@ code[class*="language-"] {
     margin     : 0;
     padding    : 0;
 }
+
+.copy-btn {
+    color: #69C;
+    text-shadow: 0 0 0 #69C;
+    cursor: pointer;
+    transition: all 0.4s linear 0.4s;
+
+    &:active {
+        color: #070;
+        text-shadow: 0 0 1px #070;
+        transition: all 0.01s linear 0.01s;
+    }
+}

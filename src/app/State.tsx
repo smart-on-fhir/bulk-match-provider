@@ -37,7 +37,10 @@ export interface State {
     statusURL: string
     manifest: MatchManifest | null
     canceled?: boolean
+    tabIndex: number
 }
+
+export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ? window.location.origin : "http://127.0.0.1:3456"
 
 export const initialState: State = {
     preset: null,
@@ -45,9 +48,7 @@ export const initialState: State = {
     matchRequest: {
         loading: false,
         error  : null,
-        baseUrl: process.env.NODE_ENV === "production" ?
-            window.location.origin + "/fhir/" :
-            "http://127.0.0.1:3456/fhir/",
+        baseUrl: BACKEND_BASE_URL + "/fhir/",
         onlySingleMatch   : false,
         onlyCertainMatches: false,
         count             : 0,
@@ -56,7 +57,8 @@ export const initialState: State = {
     },
     statusURL: "",
     manifest: null,
-    canceled: false
+    canceled: false,
+    tabIndex: 0
 }
 
 export type ActionCreator = (...args: any[]) => StateModifier

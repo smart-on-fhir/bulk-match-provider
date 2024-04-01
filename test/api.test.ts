@@ -7,7 +7,96 @@ import { wait } from "../src/lib"
 import moment from "moment"
 import patients from "../src/patients"
 import "./init-tests"
+import { randomBytes } from "crypto"
+import jwt, { SignOptions } from "jsonwebtoken"
+import jwkToPem from "jwk-to-pem"
+import MockServer from "./MockServer"
 
+const PUBLIC_KEY = {
+    "kty": "EC",
+    "crv": "P-384",
+    "x": "3K1Lw7Qkjj5LWSk5NnIwWmkb5Yo2GkcwVtnM8xhhGdM0bI3B632QMZmqtRHQ5APJ",
+    "y": "CBqiq5QwE8EyUxw2_oDJzVHrY5j22ny9KbRCK5vABppaGO4x8MxnTWfQMtGIbVQN",
+    "key_ops": [ "verify" ],
+    "ext": true,
+    "kid": "b37fcf0b5801fde3af48bd55fd95117e",
+    "alg": "ES384"
+}
+
+const PRIVATE_KEY = {
+    "kty": "EC",
+    "crv": "P-384",
+    "d": "tb7pcRThbZ8gHMFLZXJLMG48U0euuiPqSHBsOYPR2Bqsdq9rEq4Pi6LiOo890Qm8",
+    "x": "3K1Lw7Qkjj5LWSk5NnIwWmkb5Yo2GkcwVtnM8xhhGdM0bI3B632QMZmqtRHQ5APJ",
+    "y": "CBqiq5QwE8EyUxw2_oDJzVHrY5j22ny9KbRCK5vABppaGO4x8MxnTWfQMtGIbVQN",
+    "key_ops": [ "sign" ],
+    "ext": true,
+    "kid": "b37fcf0b5801fde3af48bd55fd95117e",
+    "alg": "ES384"
+}
+
+// -----------------------------------------------------------------------------
+
+function generateRegistrationToken({
+    tokenUrl,
+    clientId,
+    lifetime = 300,
+    privateKey = PRIVATE_KEY,
+    claimsOverride = {},
+    signOptionsOverride = {}
+}: {
+    tokenUrl: string
+    clientId: string
+    lifetime?: number
+    privateKey?: any
+    claimsOverride?: Record<string, any>
+    signOptionsOverride?: SignOptions
+}) {
+    const claims = {
+        iss: clientId,
+        sub: clientId,
+        aud: tokenUrl,
+        exp: Math.round(Date.now() / 1000) + lifetime,
+        jti: randomBytes(10).toString("hex"),
+        ...claimsOverride
+    };
+    const privateKeyPEM = jwkToPem(privateKey as jwkToPem.JWK, { private: true })
+    return jwt.sign(claims, privateKeyPEM, {
+        algorithm: privateKey.alg as jwt.Algorithm,
+        keyid    : privateKey.kid,
+        ...signOptionsOverride
+    });
+}
+
+function tokenRequest({
+    tokenUrl,
+    clientId,
+    scope = "system/patient.read",
+    privateKey = PRIVATE_KEY,
+    claimsOverride = {},
+    signOptionsOverride = {}
+}: {
+    tokenUrl: string
+    clientId: string
+    scope?: string
+    privateKey?: any
+    claimsOverride?: Record<string, any>
+    signOptionsOverride?: SignOptions
+}) {
+    const token = generateRegistrationToken({ clientId, tokenUrl, claimsOverride, signOptionsOverride, privateKey });
+    return fetch(tokenUrl, {
+        method: "POST",
+        headers: {
+            "content-type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+            grant_type           : "client_credentials",
+            client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            client_assertion     : token,
+            scope
+        })
+    })
+}
 
 async function match(baseUrl: string, {
     resource,
@@ -83,10 +172,44 @@ function expectOperationOutcome(json: any, {
     }
 }
 
+function expectOAuthError(json: any, {
+    error,
+    error_description
+}: {
+    error?: string | RegExp
+    error_description?: string | RegExp
+} = {}) {
+    assert.ok(json && typeof json === "object", "OAuth error responses must be objects")
+    assert.ok(typeof json.error === "string", "OAuth errors must have error property")
+    assert.ok(typeof json.error_description === "string", "OAuth errors must have error_description property")
+    if (error) {
+        if (error instanceof RegExp) {
+            assert.match(json.error, error)
+        } else {
+            assert.equal(json.error, error)
+        }
+    }
+    if (error_description) {
+        if (error_description instanceof RegExp) {
+            assert.match(json.error_description, error_description)
+        } else {
+            assert.equal(json.error_description, error_description)
+        }
+    }
+}
+
 describe("API", () => {
 
+    const mockServer = new MockServer("MockServer", true)
     let server : Server
     let baseUrl: string
+
+
+    before(async () => await mockServer.start())
+
+    after(async () => await mockServer.stop())
+
+    afterEach(() => mockServer.clear())
 
     before(async () => {
         const { address, server: _server } = await run()
@@ -100,6 +223,440 @@ describe("API", () => {
         } else {
             next()
         }
+    })
+
+    describe("auth", () => {
+
+        describe("registration endpoint", () => {
+        
+        })
+
+        describe("token endpoint", () => {
+            it ("requires 'content-type' header of 'application/x-www-form-urlencoded'", async () => {
+                const res = await fetch(`${baseUrl}/auth/token`, {
+                    method: "POST"
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Invalid request content-type header (must be 'application/x-www-form-urlencoded')"
+                })
+            })
+
+            it ("requires 'grant_type' parameter to be present", async () => {
+                const res = await fetch(`${baseUrl}/auth/token`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    }
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_grant',
+                    error_description: "Missing grant_type parameter"
+                })
+            })
+
+            it ("requires the 'grant_type' parameter to equal 'client_credentials'", async () => {
+                const res = await fetch(`${baseUrl}/auth/token`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({ grant_type: "bad-grant-type" })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'unsupported_grant_type',
+                    error_description: "The grant_type parameter should equal 'client_credentials'"
+                })
+            })
+
+            it ("requires the 'client_assertion_type' parameter to be present", async () => {
+                const res = await fetch(`${baseUrl}/auth/token`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({ grant_type: "client_credentials" })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Missing client_assertion_type parameter"
+                })
+            })
+
+            it ("requires the 'client_assertion_type' parameter to equal 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'", async () => {
+                const res = await fetch(`${baseUrl}/auth/token`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        grant_type: "client_credentials",
+                        client_assertion_type: "bad-assertion-type"
+                    })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Invalid client_assertion_type parameter. Must be 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'."
+                })
+            })
+
+            it ("requires the 'client_assertion' parameter to be present", async () => {
+                const res = await fetch(`${baseUrl}/auth/token`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        grant_type: "client_credentials",
+                        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+                    })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Missing client_assertion parameter"
+                })
+            })
+
+            it ("requires the 'client_assertion' parameter to be a JWT", async () => {
+                const res = await fetch(`${baseUrl}/auth/token`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        grant_type           : "client_credentials",
+                        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                        client_assertion     : "...bad-token.d.f.gs"
+                    })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: /Invalid registration token/i
+                })
+            })
+
+            it ("requires the client_id to be set in the 'sub' claim", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = "whatever"
+                const accessTokenLifetime = 300 // 5 min
+                const claims = {
+                    iss: clientId,
+                    // sub: clientId,
+                    aud: tokenUrl,
+                    exp: Math.round(Date.now() / 1000) + accessTokenLifetime,
+                    jti: randomBytes(10).toString("hex")
+                };
+                const privateKeyPEM = jwkToPem(PRIVATE_KEY as jwkToPem.JWK, { private: true })
+                const token = jwt.sign(claims, privateKeyPEM, {
+                    algorithm: PRIVATE_KEY.alg as jwt.Algorithm,
+                    keyid    : PRIVATE_KEY.kid
+                });
+                const res = await fetch(tokenUrl, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        grant_type           : "client_credentials",
+                        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                        client_assertion     : token
+                    })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: /The client ID must be set at both the iss and sub/i
+                })
+            })
+
+            it ("requires the client_id in the 'sub' claim to be a JWT", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = "whatever"
+                const accessTokenLifetime = 300 // 5 min
+                const claims = {
+                    iss: clientId,
+                    sub: clientId,
+                    aud: tokenUrl,
+                    exp: Math.round(Date.now() / 1000) + accessTokenLifetime,
+                    jti: randomBytes(10).toString("hex")
+                };
+                const privateKeyPEM = jwkToPem(PRIVATE_KEY as jwkToPem.JWK, { private: true })
+                const token = jwt.sign(claims, privateKeyPEM, {
+                    algorithm: PRIVATE_KEY.alg as jwt.Algorithm,
+                    keyid    : PRIVATE_KEY.kid
+                });
+                const res = await fetch(tokenUrl, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        grant_type           : "client_credentials",
+                        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                        client_assertion     : token
+                    })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Invalid client ID"
+                })
+            })
+
+            it ("Validates authenticationToken.aud", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InJ" +
+                    "lZ2lzdHJhdGlvbi10b2tlbiJ9.eyJqd2tzX3VybCI6Imh0dHBzOi8vYnVsay" +
+                    "1kYXRhLnNtYXJ0aGVhbHRoaXQub3JnL2tleXMvRVMzODQucHVibGljLmpzb2" +
+                    "4iLCJhY2Nlc3NUb2tlbnNFeHBpcmVJbiI6MTUsImlhdCI6MTcxMTU0OTQ5Mn" +
+                    "0.0FAliOuANtkmMR_utZQLAFFmcyXgz81fWsl2ByG-Vt8";
+                const res = await tokenRequest({
+                    tokenUrl,
+                    clientId,
+                    claimsOverride: {
+                        aud: ""
+                    }
+                })
+                assert.equal(res.status, 400)
+                    const json = await res.json()
+                    expectOAuthError(json, {
+                        error: 'invalid_grant',
+                        error_description: `Invalid token 'aud' claim. Must be '${tokenUrl}'.`
+                    })
+            })
+
+            it ("Validates authenticationToken's jku header", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InJ" +
+                    "lZ2lzdHJhdGlvbi10b2tlbiJ9.eyJqd2tzX3VybCI6Imh0dHBzOi8vYnVsay" +
+                    "1kYXRhLnNtYXJ0aGVhbHRoaXQub3JnL2tleXMvRVMzODQucHVibGljLmpzb2" +
+                    "4iLCJhY2Nlc3NUb2tlbnNFeHBpcmVJbiI6MTUsImlhdCI6MTcxMTU0OTQ5Mn" +
+                    "0.0FAliOuANtkmMR_utZQLAFFmcyXgz81fWsl2ByG-Vt8";
+                const res = await tokenRequest({
+                    tokenUrl,
+                    clientId,
+                    signOptionsOverride: {
+                        header: {
+                            alg: PRIVATE_KEY.alg,
+                            jku: "whatever"
+                        }
+                    }
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_grant',
+                    error_description: /The provided jku '.*?' is different than the one used at registration time (.*?)/
+                })
+            })
+
+            it ("Can extract public keys from jwks url", async () => {
+                mockServer.mock("/keys", { body: { keys: [ PUBLIC_KEY ]}})
+                const tokenUrl = `${baseUrl}/auth/token`
+                const jwks_url = `${mockServer.baseUrl}/keys`
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({
+                    tokenUrl,
+                    clientId,
+                    claimsOverride: {
+                        jwks_url
+                    },
+                    signOptionsOverride: {
+                        header: {
+                            alg: PRIVATE_KEY.alg,
+                            jku: jwks_url
+                        }
+                    }
+                })
+                assert.equal(res.status, 200)
+            })
+
+            it ("Can extract public keys from jwks url + inline jwks", async () => {
+                mockServer.mock("/keys", { body: { keys: [ PUBLIC_KEY ]}})
+                const tokenUrl = `${baseUrl}/auth/token`
+                const jwks_url = `${mockServer.baseUrl}/keys`
+                const clientId = jwt.sign({
+                    jwks_url,
+                    jwks: { keys: [ PUBLIC_KEY ] }
+                }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({
+                    tokenUrl,
+                    clientId,
+                    claimsOverride: {
+                        jwks_url
+                    },
+                    signOptionsOverride: {
+                        header: {
+                            alg: PRIVATE_KEY.alg,
+                            jku: jwks_url
+                        }
+                    }
+                })
+                assert.equal(res.status, 200)
+            })
+
+            it ("Rejects invalid public keys", async () => {
+                mockServer.mock("/keys", { body: { keys: [
+                    { ...PUBLIC_KEY, key_ops: [] },
+                    { ...PUBLIC_KEY, key_ops: null }
+                ]}})
+                const tokenUrl = `${baseUrl}/auth/token`
+                const jwks_url = `${mockServer.baseUrl}/keys`
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({
+                    tokenUrl,
+                    clientId,
+                    claimsOverride: {
+                        jwks_url
+                    }
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_grant',
+                    error_description: /No public keys found in the JWKS/
+                })
+            })
+
+            it ("Rejects invalid jwks url response", async () => {
+                mockServer.mock("/keys", { body: {} })
+                const tokenUrl = `${baseUrl}/auth/token`
+                const jwks_url = `${mockServer.baseUrl}/keys`
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({
+                    tokenUrl,
+                    clientId,
+                    claimsOverride: {
+                        jwks_url
+                    }
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Unable to obtain public keys: 'The remote jwks object has no keys array.'"
+                })
+            })
+
+            it ("Rejects if we have valid public keys but they can't verify the token", async () => {
+                mockServer.mock("/keys", { body: {
+                    keys: [
+                        { ...PUBLIC_KEY, x: "3K1Lw7Qkjj5LWSk5NnIwWmkb5Yo2GkcwVtnM8xhhGdM0bI3B632QMZmqtRHQ5APF" }
+                    ]
+                } })
+                const tokenUrl = `${baseUrl}/auth/token`
+                const jwks_url = `${mockServer.baseUrl}/keys`
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({
+                    tokenUrl,
+                    clientId,
+                    claimsOverride: {
+                        jwks_url
+                    }
+                })
+                // console.log(await res.text())
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_grant',
+                    error_description: "Unable to verify the token with any of the public keys found in the JWKS"
+                })
+            })
+
+            it ("Can simulate expired_registration_token error", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = jwt.sign({ err: "expired_registration_token" }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({ tokenUrl, clientId })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Registration token expired (simulated error)"
+                })
+            })
+
+            it ("Can simulate invalid_scope error", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = jwt.sign({ err: "invalid_scope" }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({ tokenUrl, clientId })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_scope',
+                    error_description: "Invalid scope (simulated error)"
+                })
+            })
+
+            it ("Can simulate invalid_client error", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = jwt.sign({ err: "invalid_client" }, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({ tokenUrl, clientId })
+                assert.equal(res.status, 401)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_client',
+                    error_description: "Invalid client (simulated error)"
+                })
+            })
+
+            it ("Can simulate invalid_client error", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({ tokenUrl, clientId, signOptionsOverride: {
+                    header: {
+                        alg: PRIVATE_KEY.alg,
+                        kid: undefined
+                    }
+                } })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "The registration header must have a kid header"
+                })
+            })
+
+            it ("Requires scope parameter", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({ tokenUrl, clientId, scope: "" })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Missing scope parameter"
+                })
+            })
+            
+            it ("Can negotiate scopes", async () => {
+                const tokenUrl = `${baseUrl}/auth/token`
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret, { keyid: "registration-token" })
+                const res = await tokenRequest({ tokenUrl, clientId, scope: "x y z" })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_scope',
+                    error_description: 'No access could be granted for scopes "x y z".'
+                })
+            })
+            
+        })
     })
     
     // The patient resources submitted to the operation do not need to be

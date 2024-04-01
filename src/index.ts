@@ -1,17 +1,23 @@
 import "dotenv/config"
 import { Server }                                   from "http"
 import cors                                         from "cors"
-import express, { json }                            from "express"
+import express, { json, urlencoded }                from "express"
 import type { NextFunction, Request, Response }     from "express"
 import { join }                                     from "path"
 import config                                       from "./config"
 import { HttpError, InternalServerError, NotFound } from "./HttpError"
 import { startChecking }                            from "./JobManager"
-import { asyncRouteWrap, createOperationOutcome }   from "./lib"
 import * as Gateway                                 from "./Gateway"
 import { router as FHIRRouter }                     from "./fhir" 
 import { smartConfig }                              from "./WellKnown"
 import { keyGenerator }                             from "./keyGenerator"
+import { register }                                 from "./register"
+import { tokenHandler }                             from "./token"
+import {
+    asyncRouteWrap,
+    checkAuth,
+    createOperationOutcome
+} from "./lib"
 
 
 const app = express()
@@ -31,23 +37,29 @@ app.get("/.well-known/smart-configuration", smartConfig)
 
 app.get("/generate-jwk", keyGenerator)
 
+app.post("/auth/register", urlencoded({ extended: false }), register)
+app.post("/auth/token", urlencoded({ extended: false }), tokenHandler)
+
 // bulk-match and other fhir endpoints
-app.use(["/:sim/fhir", "/fhir"], FHIRRouter)
+app.use("/fhir", FHIRRouter)
 
 // get job status
-app.get(["/:sim/jobs/:id/status", "/jobs/:id/status"], asyncRouteWrap(Gateway.checkStatus))
+app.get("/jobs/:id/status", checkAuth, asyncRouteWrap(Gateway.checkStatus))
 
 // abort/delete job (bulk data like)
-app.delete(["/:sim/jobs/:id/status", "/jobs/:id/status"], asyncRouteWrap(Gateway.abort))
+app.delete("/jobs/:id/status", checkAuth, asyncRouteWrap(Gateway.abort))
 
 // download bulk file
-app.get(["/:sim/jobs/:id/files/:file", "/jobs/:id/files/:file"], asyncRouteWrap(Gateway.downloadFile))
+app.get("/jobs/:id/files/:file", checkAuth, asyncRouteWrap(Gateway.downloadFile))
 
 // proprietary: view job by ID
 app.get("/jobs/:id", asyncRouteWrap(Gateway.getJob))
 
 // proprietary: list all jobs
 app.get("/jobs", asyncRouteWrap(Gateway.listJobs))
+
+// People can download the patients.ndjson file
+app.get("/patients", (req, res) => res.sendFile(join(__dirname, "../data/patients.ndjson")))
 
 // Static
 app.use(express.static(join(__dirname, "../static/")));

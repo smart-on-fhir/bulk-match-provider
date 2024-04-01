@@ -18,6 +18,8 @@ import {
     updateRequest
 } from "./State"
 import "./style.scss"
+import ClientRegistration from "./ClientRegistration"
+import ServerInfo from "./ServerInfo"
 
 
 export default function App() {
@@ -26,7 +28,8 @@ export default function App() {
         preset,
         statusURL,
         manifest,
-        requests
+        requests,
+        tabIndex
     } = state;
 
     useEffect(() => {
@@ -58,11 +61,32 @@ export default function App() {
                 </div>
             </nav>
             <div className="container my-3">
-                <Collapse header={ <h5 className="m-0">Bulk-Match Request</h5> } open>
-                    <MatchRequest state={state} dispatch={dispatch} />
-                </Collapse>
-                { requests.map((r, i) => <RequestView request={r} key={i} />) }
-                { manifest && <MatchResults manifest={manifest} /> }
+                <ul className="nav nav-tabs">
+                    <li className="nav-item">
+                        <a className={"nav-link" + (tabIndex === 0 ? " active" : "")} onClick={(e) => { e.preventDefault(); dispatch(merge({ tabIndex: 0 })); }} href="#">Sample App</a>
+                    </li>
+                    <li className="nav-item">
+                        <a className={"nav-link" + (tabIndex === 1 ? " active" : "")} onClick={(e) => { e.preventDefault(); dispatch(merge({ tabIndex: 1 })); }} href="#">Server Info</a>
+                    </li>
+                    <li className="nav-item">
+                        <a className={"nav-link" + (tabIndex === 2 ? " active" : "")} onClick={(e) => { e.preventDefault(); dispatch(merge({ tabIndex: 2 })); }} href="#">Client Registration</a>
+                    </li>
+                </ul>
+                <div className="tab-content pt-4">
+                    <div className={"tab-pane" + (tabIndex === 0 ? " show active" : "")} role="tabpanel" tabIndex={0}>
+                        <Collapse header={ <h5 className="m-0">Bulk-Match Request</h5> } open>
+                            <MatchRequest state={state} dispatch={dispatch} />
+                        </Collapse>
+                        { requests.map((r, i) => <RequestView request={r} key={i} />) }
+                        { manifest && <MatchResults manifest={manifest} /> }
+                    </div>
+                    <div className={"tab-pane" + (tabIndex === 1 ? " show active" : "")} role="tabpanel" tabIndex={0}>
+                        <ServerInfo />
+                    </div>
+                    <div className={"tab-pane" + (tabIndex === 2 ? " show active" : "")} role="tabpanel" tabIndex={0}>
+                        <ClientRegistration />
+                    </div>
+                </div>
             </div>
         </>
     )
