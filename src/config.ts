@@ -18,11 +18,13 @@ export default {
     // Default access token lifetime in minutes
     accessTokenLifetime: uInt(env.ACCESS_TOKEN_LIFETIME, 60),
 
-    // Default refresh token lifetime in minutes
-    refreshTokenLifeTime: uInt(env.REFRESH_TOKEN_LIFETIME, 60 * 24 * 365),
-    
     // Accept JWKs using the following algorithms
-    supportedAlgorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
+    supportedAlgorithms: [
+        // "HS256", "HS384", "HS512",
+        "RS256", "RS384", "RS512",
+        "ES256", "ES384", "ES512",
+        // "PS256", "PS384", "PS512",
+    ],
 
     // Keep jobs for how long (minutes since creation)?
     jobMaxLifetimeMinutes: uInt(env.JOB_MAX_LIFETIME_MINUTES, 60),
