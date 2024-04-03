@@ -140,7 +140,7 @@ export async function downloadFile(req: app.Request, res: Response) {
 
 export async function kickOff(req: app.Request, res: Response) {
     
-    if (req.client?.err === "too_many_patient_params") {
+    if (req.registeredClient?.err === "too_many_patient_params") {
         throw new BadRequest("Too many patient parameters (simulated error)")
     }
 

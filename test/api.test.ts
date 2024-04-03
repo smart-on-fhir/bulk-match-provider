@@ -639,6 +639,27 @@ describe("API", () => {
     // details.
 
     describe("$bulk-match", () => {
+
+        it ("Can simulate too_many_patient_params error", async () => {
+            const clientId  = jwt.sign({
+                jwks: { keys: [ PUBLIC_KEY ] },
+                err: "too_many_patient_params"
+            }, config.jwtSecret)
+            const assertion = generateRegistrationToken({ clientId })
+            const res = await requestAccessToken(assertion)
+            const json = await res.json()
+            const res2 = await fetch(`${baseUrl}/fhir/Patient/$bulk-match`, {
+                method: "POST",
+                headers: { authorization: `Bearer ${json.access_token}` }
+            })
+            const json2 = await res2.json()
+            expectOperationOutcome(json2, {
+                severity: 'error',
+                code: 400,
+                diagnostics: "Too many patient parameters (simulated error)"
+            })
+        })
+
         it ("Rejects invalid accept header", async () => {
             const res = await fetch(`${baseUrl}/fhir/Patient/$bulk-match`, {
                 method: "POST",
