@@ -470,7 +470,7 @@ describe("API", () => {
                 mockServer.mock("/keys", { body: { keys: [ PUBLIC_KEY ]}})
                 const tokenUrl = `${baseUrl}/auth/token`
                 const jwks_url = `${mockServer.baseUrl}/keys`
-                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
                 const res = await tokenRequest({
                     tokenUrl,
                     clientId,
@@ -494,7 +494,7 @@ describe("API", () => {
                 const clientId = jwt.sign({
                     jwks_url,
                     jwks: { keys: [ PUBLIC_KEY ] }
-                }, config.jwtSecret, { keyid: "registration-token" })
+                }, config.jwtSecret)
                 const res = await tokenRequest({
                     tokenUrl,
                     clientId,
@@ -519,7 +519,7 @@ describe("API", () => {
                 ]}})
                 const tokenUrl = `${baseUrl}/auth/token`
                 const jwks_url = `${mockServer.baseUrl}/keys`
-                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
                 const res = await tokenRequest({
                     tokenUrl,
                     clientId,
@@ -539,7 +539,7 @@ describe("API", () => {
                 mockServer.mock("/keys", { body: {} })
                 const tokenUrl = `${baseUrl}/auth/token`
                 const jwks_url = `${mockServer.baseUrl}/keys`
-                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
                 const res = await tokenRequest({
                     tokenUrl,
                     clientId,
@@ -563,7 +563,7 @@ describe("API", () => {
                 } })
                 const tokenUrl = `${baseUrl}/auth/token`
                 const jwks_url = `${mockServer.baseUrl}/keys`
-                const clientId = jwt.sign({ jwks_url }, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
                 const res = await tokenRequest({
                     tokenUrl,
                     clientId,
@@ -582,7 +582,7 @@ describe("API", () => {
 
             it ("Can simulate expired_registration_token error", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ err: "expired_registration_token" }, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ err: "expired_registration_token" }, config.jwtSecret)
                 const res = await tokenRequest({ tokenUrl, clientId })
                 assert.equal(res.status, 400)
                 const json = await res.json()
@@ -594,7 +594,7 @@ describe("API", () => {
 
             it ("Can simulate invalid_scope error", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ err: "invalid_scope" }, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ err: "invalid_scope" }, config.jwtSecret)
                 const res = await tokenRequest({ tokenUrl, clientId })
                 assert.equal(res.status, 403)
                 const json = await res.json()
@@ -606,7 +606,7 @@ describe("API", () => {
 
             it ("Can simulate invalid_client error", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ err: "invalid_client" }, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ err: "invalid_client" }, config.jwtSecret)
                 const res = await tokenRequest({ tokenUrl, clientId })
                 assert.equal(res.status, 401)
                 const json = await res.json()
@@ -618,7 +618,7 @@ describe("API", () => {
 
             it ("Can simulate invalid_client error", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
                 const res = await tokenRequest({ tokenUrl, clientId, signOptionsOverride: {
                     header: {
                         alg: PRIVATE_KEY.alg,
@@ -635,7 +635,7 @@ describe("API", () => {
 
             it ("Requires scope parameter", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
                 const res = await tokenRequest({ tokenUrl, clientId, scope: "" })
                 assert.equal(res.status, 400)
                 const json = await res.json()
@@ -647,7 +647,7 @@ describe("API", () => {
             
             it ("Can negotiate scopes", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret, { keyid: "registration-token" })
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
                 const res = await tokenRequest({ tokenUrl, clientId, scope: "x y z" })
                 assert.equal(res.status, 403)
                 const json = await res.json()
