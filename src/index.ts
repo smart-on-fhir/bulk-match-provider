@@ -62,6 +62,14 @@ app.get("/jobs", asyncRouteWrap(Gateway.listJobs))
 // People can download the patients.ndjson file
 app.get("/patients", (req, res) => res.sendFile(join(__dirname, "../data/patients.ndjson")))
 
+// The app will need to red some config vars
+app.get("/config", (req, res) => res.json({
+    supportedAlgorithms        : config.supportedAlgorithms,
+    jobMaxLifetimeMinutes      : config.jobMaxLifetimeMinutes,
+    completedJobLifetimeMinutes: config.jobMaxLifetimeMinutes,
+    resourceParameterLimit     : config.resourceParameterLimit
+}))
+
 // Static
 app.use(express.static(join(__dirname, "../static/")));
 

@@ -1,8 +1,6 @@
-// import { BACKEND_BASE_URL } from "./State";
-export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ?
-    window.location.origin :
-    "http://127.0.0.1:3456"
+import { useEffect, useState } from "react"
 
+export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ? window.location.origin : "http://127.0.0.1:3456"
 
 function NewTabLink({ href }: { href: string }) {
     return (
@@ -13,6 +11,18 @@ function NewTabLink({ href }: { href: string }) {
 }
 
 export default function ServerInfo() {
+
+    const [config, setConfig] = useState({
+        supportedAlgorithms        : [ "LOADING..." ],
+        jobMaxLifetimeMinutes      : 0,
+        completedJobLifetimeMinutes: 0,
+        resourceParameterLimit     : 0
+    })
+
+    useEffect(() => {
+        fetch(BACKEND_BASE_URL + "/config").then(res => res.json()).then(setConfig)
+    }, [])
+
     return (
         <div className="py-4">
             <dl>
@@ -56,11 +66,16 @@ export default function ServerInfo() {
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Supported Sign Algorithms</dt>
                 <dd className="mb-4">
-                    <code>RS256</code>, <code>RS384</code>, <code>RS512</code>, <code>ES256</code>, <code>ES384</code>, <code>ES512</code>
+                    { config.supportedAlgorithms.map((alg, i, all) => {
+                        if (i === all.length - 1) {
+                            return <code key={i}>{alg}</code>
+                        }
+                        return <span key={i}><code>{alg}</code>, </span>
+                    }) }
                     <div className="small text-secondary">
-                        You can sign your tokens with private keys using any of
-                        these algorithms and the server should be able to verify
-                        them using the corresponding public key.
+                        You can sign your client_assertion with private keys using
+                        any of these algorithms and the server should be able to
+                        verify them using the corresponding public key.
                     </div>
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Available Patients</dt>
@@ -84,7 +99,7 @@ export default function ServerInfo() {
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Completed Jobs are Deleted After</dt>
                 <dd className="mb-4">
-                    <code>5 minutes</code>
+                    <code>{ config.completedJobLifetimeMinutes } minutes</code>
                     <div className="small text-secondary">
                         Once a match job is completed you will have 5 minutes to
                         download the result before they are deleted.
@@ -92,11 +107,20 @@ export default function ServerInfo() {
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Pending Jobs are Deleted After</dt>
                 <dd className="mb-4">
-                    <code>60 minutes</code>
+                    <code>{ config.jobMaxLifetimeMinutes } minutes</code>
                     <div className="small text-secondary">
                         If for whatever reason a match job is unable to complete
                         in one hour, iit will be deleted regardless of its current
                         status.
+                    </div>
+                </dd>
+                <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Max Patient Parameters</dt>
+                <dd className="mb-4">
+                    <code>{ config.resourceParameterLimit }</code>
+                    <div className="small text-secondary">
+                        You cannot send more then this number of patient parameters
+                        in one match request. If you need to match more you will
+                        have to split them into multiple match requests.
                     </div>
                 </dd>
             </dl>
