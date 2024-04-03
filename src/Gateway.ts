@@ -47,14 +47,14 @@ export async function listJobs(req: Request, res: Response) {
 }
 
 export async function checkStatus(req: app.Request, res: Response) {
+    if (req.registeredClient?.err === "too_frequent_status_requests") {
+        throw new TooManyRequests("Too frequent status requests (simulated error)")
+    }
+
     try {
         var job = await Job.byId(req.params.id)
     } catch (ex) {
         return res.status(404).json(createOperationOutcome(ex))
-    }
-
-    if (req.client?.err === "too_frequent_status_requests") {
-        throw new TooManyRequests("Too frequent status requests (simulated error)")
     }
 
     if (job.error) {

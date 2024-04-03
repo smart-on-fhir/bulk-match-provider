@@ -839,6 +839,26 @@ describe("API", () => {
 
     describe("Check Status", () => {
 
+        it ("Can simulate too_frequent_status_requests error", async () => {
+            const clientId  = jwt.sign({
+                jwks: { keys: [ PUBLIC_KEY ] },
+                err: "too_frequent_status_requests"
+            }, config.jwtSecret)
+            const assertion = generateRegistrationToken({ clientId })
+            const res = await requestAccessToken(assertion)
+            const json = await res.json()
+            const res2 = await fetch(`${baseUrl}/jobs/whatever/status`, {
+                headers: { authorization: `Bearer ${json.access_token}` }
+            })
+            const json2 = await res2.json()
+            assert.equal(res2.status, 429)
+            expectOperationOutcome(json2, {
+                severity: 'error',
+                code: 429,
+                diagnostics: "Too frequent status requests (simulated error)"
+            })
+        })
+
         it ("Rejects on missing jobs", async () => {
             const res = await fetch(`${baseUrl}/jobs/missingJob/status`)
             const txt = await res.text()
