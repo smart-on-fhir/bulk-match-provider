@@ -147,7 +147,7 @@ export async function kickOff(req: app.Request, res: Response) {
     validateMatchHeaders(req.headers)
     const params = getMatchParameters(req.body as fhir4.Parameters)
     const baseUrl = getRequestBaseURL(req);
-    const job = await Job.create(baseUrl)
+    const job = await Job.create(baseUrl, !!req.registeredClient)
 
     // Don't wait for this (just start it here), but also don't crash the server
     // if it fails!

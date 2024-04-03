@@ -186,8 +186,25 @@ declare namespace app {
          */
         "invalid_scope";
 
-
     interface AccessTokenResponse {
+        
+        /** Fixed value "bearer" */
+        token_type: "bearer",
+        
+        /** Granted scopes */
+        scope: string
+        
+        /** Signed client JWT */
+        client_id: string
+
+        /** Number of seconds for the access token lifetime */
+        expires_in: number
+
+        /** The access token given to the client */
+        access_token: string
+    }
+
+    interface AccessToken {
         
         /** Fixed value "bearer" */
         token_type: "bearer"
@@ -254,7 +271,7 @@ declare namespace app {
         ReqQuery = ParsedQs,
         Locals extends Record<string, any> = Record<string, any>
     > extends ExpressRequest<P, ResBody, ReqBody, ReqQuery, Locals> {
-        client?: RegisteredClient
+        registeredClient?: RegisteredClient
     }
 }
 

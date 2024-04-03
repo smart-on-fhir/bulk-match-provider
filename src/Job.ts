@@ -63,12 +63,13 @@ export default class Job
         Job.instances[this.id] = this
     }
 
-    static async create(baseUrl: string) {
+    static async create(baseUrl: string, authenticated = false) {
         const job = new Job()
         job.baseUrl = baseUrl
         job.updateManifest({
             request        : baseUrl + "/fhir/Patient/$bulk-match",
-            transactionTime: new Date().toUTCString()
+            transactionTime: new Date().toUTCString(),
+            requiresAccessToken: !!authenticated
         })
         return await job.save()
     }

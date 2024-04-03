@@ -167,13 +167,14 @@ export function checkAuth(req: Request, res: Response, next: NextFunction)
                 {
                     algorithms: [ "HS256" ] // That is what we use for signing the access tokens
                 }
-            ) as app.AccessTokenResponse;
+            ) as app.AccessToken;
         } catch (e) {
             console.error(e)
             throw new Unauthorized("Invalid token: " + (e as Error).message);
         }
 
         const client = jwt.decode(token.client_id) as app.RegisteredClient
+        (req as app.Request).registeredClient = client
 
         if (client.err === "expired_access_token") {
             throw new InvalidClientError("Access token expired (simulated error)")

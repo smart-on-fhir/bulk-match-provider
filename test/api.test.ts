@@ -846,6 +846,27 @@ describe("API", () => {
             assert.match(txt, /Job not found/)
         })
 
+        it ("Sets requiresAccessToken to true is kicked-off with auth", async () => {
+            const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }}, config.jwtSecret)
+            const assertion = generateRegistrationToken({ clientId })
+            const res1      = await requestAccessToken(assertion)
+            const { access_token } = await res1.json()
+            
+            const res2 = await match(baseUrl, {
+                resource: [ { resourceType: "Patient", id: "#1" } ],
+                headers: { authorization: `Bearer ${access_token}` }
+            })
+
+            assert.equal(res2.status, 202)
+            const statusUrl = res2.headers.get("content-location")
+            await wait(config.jobThrottle * 2 + 10 - config.throttle)
+            const res3 = await fetch(statusUrl + "")
+            assert.equal(res3.status, 200)
+            const json = await res3.json()
+            // console.log(json)
+            assert.equal(json.requiresAccessToken, true)
+        })
+
         it ("Works", async () => {
 
             const origRetryAfter = config.retryAfter
