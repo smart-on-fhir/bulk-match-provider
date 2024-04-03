@@ -636,6 +636,37 @@ describe("API", () => {
                 })
             })
 
+            it (`Access token lifetime cannot exceed ${config.maxAccessTokenLifetime} minutes`, async () => {
+                const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }, accessTokensExpireIn: config.maxAccessTokenLifetime + 10 }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res       = await requestAccessToken(assertion)
+                assert.equal(res.status, 200)
+                const json: app.AccessTokenResponse = await res.json()
+                assert.ok(
+                    json.expires_in >= (config.maxAccessTokenLifetime - 1) * 60 &&
+                    json.expires_in <= (config.maxAccessTokenLifetime + 1) * 60
+                )
+            })
+
+            it (`Access token lifetime can be controlled during authentication`, async () => {
+                const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] } }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId, lifetime: 10 })
+                const res       = await requestAccessToken(assertion)
+                assert.equal(res.status, 200)
+                const json: app.AccessTokenResponse = await res.json()
+                assert.ok(json.expires_in >= 9 * 60 && json.expires_in <= 11 * 60)
+            })
+
+            it ("Can control the access token lifetime at registration", async () => {
+                const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }, accessTokensExpireIn: 2 }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res       = await requestAccessToken(assertion)
+                assert.equal(res.status, 200)
+                const json: app.AccessTokenResponse = await res.json()
+                // console.log(json)
+                assert.ok(json.expires_in >= 1 * 60 && json.expires_in <= 3 * 60)
+            })
+
             it ("Can simulate expired_registration_token error", async () => {
                 const clientId  = jwt.sign({ err: "expired_registration_token" }, config.jwtSecret)
                 const assertion = generateRegistrationToken({ clientId })

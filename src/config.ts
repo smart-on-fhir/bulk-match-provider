@@ -15,8 +15,8 @@ export default {
     // We use this to sign our tokens
     jwtSecret: env.SECRET || "this is our patient matching secret",
 
-    // Default access token lifetime in minutes
-    accessTokenLifetime: uInt(env.ACCESS_TOKEN_LIFETIME, 60),
+    // Max allowed access token lifetime in minutes
+    maxAccessTokenLifetime: uInt(env.MAX_ACCESS_TOKEN_LIFETIME, 60),
 
     // Accept JWKs using the following algorithms
     supportedAlgorithms: [

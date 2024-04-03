@@ -163,16 +163,15 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
             `No access could be granted for scopes "${req.body.scope}".`
         );
     }
-    
-    // Here, expiresIn is set to the server settings for token lifetime.
-    // However, if the authentication token has shorter lifetime it will
-    // also be used for the access token.
-    const expiresIn = Math.round(Math.min(
-        authenticationTokenPayload.exp! - Math.floor(Date.now() / 1000),
-        (clientDetailsTokenPayload.accessTokensExpireIn ?
-            clientDetailsTokenPayload.accessTokensExpireIn * 60 :
-            config.accessTokenLifetime * 60)
-    ));
+
+    // If the client has set the accessTokensExpireIn set, ignore the exp claim!
+    const expiresIn = Math.min(
+        Math.round((
+            clientDetailsTokenPayload.accessTokensExpireIn ||
+            authenticationTokenPayload.exp! - Math.floor(Date.now() / 1000)) * 60
+        ),
+        config.maxAccessTokenLifetime * 60
+    )
 
     const tokenBody: any = {
         token_type: "bearer",
