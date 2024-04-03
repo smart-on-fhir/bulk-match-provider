@@ -1,16 +1,16 @@
-
-import { Server } from "http"
-import assert     from "node:assert/strict"
-import run        from "../src/index"
-import config     from "../src/config"
-import { wait } from "../src/lib"
-import moment from "moment"
-import patients from "../src/patients"
-import "./init-tests"
-import { randomBytes } from "crypto"
+import { randomBytes }      from "crypto"
+import { Server }           from "http"
+import assert               from "node:assert/strict"
 import jwt, { SignOptions } from "jsonwebtoken"
-import jwkToPem from "jwk-to-pem"
-import MockServer from "./MockServer"
+import jwkToPem             from "jwk-to-pem"
+import moment               from "moment"
+import run                  from "../src/index"
+import config               from "../src/config"
+import { wait }             from "../src/lib"
+import patients             from "../src/patients"
+import MockServer           from "./MockServer"
+import app                  from ".."
+import "./init-tests"
 
 const PUBLIC_KEY = {
     "kty": "EC",
@@ -35,81 +35,34 @@ const PRIVATE_KEY = {
     "alg": "ES384"
 }
 
+const DEFAULT_CLIENT_ID = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InJ" +
+    "lZ2lzdHJhdGlvbi10b2tlbiJ9.eyJqd2tzX3VybCI6Imh0dHBzOi8vYnVsay" +
+    "1kYXRhLnNtYXJ0aGVhbHRoaXQub3JnL2tleXMvRVMzODQucHVibGljLmpzb2" +
+    "4iLCJhY2Nlc3NUb2tlbnNFeHBpcmVJbiI6MTUsImlhdCI6MTcxMTU0OTQ5Mn" +
+    "0.0FAliOuANtkmMR_utZQLAFFmcyXgz81fWsl2ByG-Vt8";
+
 // -----------------------------------------------------------------------------
 
-function generateRegistrationToken({
-    tokenUrl,
-    clientId,
-    lifetime = 300,
-    privateKey = PRIVATE_KEY,
-    claimsOverride = {},
-    signOptionsOverride = {}
-}: {
-    tokenUrl: string
-    clientId: string
-    lifetime?: number
-    privateKey?: any
-    claimsOverride?: Record<string, any>
-    signOptionsOverride?: SignOptions
-}) {
-    const claims = {
-        iss: clientId,
-        sub: clientId,
-        aud: tokenUrl,
-        exp: Math.round(Date.now() / 1000) + lifetime,
-        jti: randomBytes(10).toString("hex"),
-        ...claimsOverride
-    };
-    const privateKeyPEM = jwkToPem(privateKey as jwkToPem.JWK, { private: true })
-    return jwt.sign(claims, privateKeyPEM, {
-        algorithm: privateKey.alg as jwt.Algorithm,
-        keyid    : privateKey.kid,
-        ...signOptionsOverride
-    });
-}
 
-function tokenRequest({
-    tokenUrl,
-    clientId,
-    scope = "system/Patient.read",
-    privateKey = PRIVATE_KEY,
-    claimsOverride = {},
-    signOptionsOverride = {}
-}: {
-    tokenUrl: string
-    clientId: string
-    scope?: string
-    privateKey?: any
-    claimsOverride?: Record<string, any>
-    signOptionsOverride?: SignOptions
-}) {
-    const token = generateRegistrationToken({ clientId, tokenUrl, claimsOverride, signOptionsOverride, privateKey });
-    return fetch(tokenUrl, {
-        method: "POST",
-        headers: {
-            "content-type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-            grant_type           : "client_credentials",
-            client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            client_assertion     : token,
-            scope
-        })
-    })
-}
+
+
+
+
 
 async function match(baseUrl: string, {
     resource,
     onlyCertainMatches,
     onlySingleMatch,
     count,
-    _outputFormat
+    _outputFormat,
+    headers
 }: {
     resource?: (fhir4.Patient | any)[]
     onlyCertainMatches?: any
     onlySingleMatch?: any
     count?: any
-    _outputFormat?: any
+    _outputFormat?: any,
+    headers?: HeadersInit
 } = {}) {
     const body: fhir4.Parameters = {
         resourceType: "Parameters",
@@ -142,7 +95,8 @@ async function match(baseUrl: string, {
         body: JSON.stringify(body),
         headers: {
             "Content-Type": "application/json",
-            accept: "application/fhir+ndjson"
+            accept: "application/fhir+ndjson",
+            ...headers
         }
     })
 }
@@ -224,6 +178,50 @@ describe("API", () => {
             next()
         }
     })
+
+    function requestAccessToken(token: string, scope = "system/Patient.read") {
+        return fetch(`${baseUrl}/auth/token`, {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+                grant_type           : "client_credentials",
+                client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                client_assertion     : token,
+                scope
+            })
+        })
+    }
+
+    function generateRegistrationToken({
+        clientId,
+        lifetime = 300,
+        privateKey = PRIVATE_KEY,
+        claimsOverride = {},
+        signOptionsOverride = {}
+    }: {
+        clientId: string
+        lifetime?: number
+        privateKey?: any
+        claimsOverride?: Record<string, any>
+        signOptionsOverride?: SignOptions
+    }) {
+        const claims = {
+            iss: clientId,
+            sub: clientId,
+            aud: `${baseUrl}/auth/token`,
+            exp: Math.round(Date.now() / 1000) + lifetime,
+            jti: randomBytes(10).toString("hex"),
+            ...claimsOverride
+        };
+        const privateKeyPEM = jwkToPem(privateKey as jwkToPem.JWK, { private: true })
+        return jwt.sign(claims, privateKeyPEM, {
+            algorithm: privateKey.alg as jwt.Algorithm,
+            keyid    : privateKey.kid,
+            ...signOptionsOverride
+        });
+    }
 
     describe("auth", () => {
 
@@ -352,12 +350,11 @@ describe("API", () => {
             it ("requires the client_id to be set in the 'sub' claim", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
                 const clientId = "whatever"
-                const accessTokenLifetime = 300 // 5 min
                 const claims = {
                     iss: clientId,
                     // sub: clientId,
                     aud: tokenUrl,
-                    exp: Math.round(Date.now() / 1000) + accessTokenLifetime,
+                    exp: Math.round(Date.now() / 1000) + 300,
                     jti: randomBytes(10).toString("hex")
                 };
                 const privateKeyPEM = jwkToPem(PRIVATE_KEY as jwkToPem.JWK, { private: true })
@@ -387,12 +384,11 @@ describe("API", () => {
             it ("requires the client_id in the 'sub' claim to be a JWT", async () => {
                 const tokenUrl = `${baseUrl}/auth/token`
                 const clientId = "whatever"
-                const accessTokenLifetime = 300 // 5 min
                 const claims = {
                     iss: clientId,
                     sub: clientId,
                     aud: tokenUrl,
-                    exp: Math.round(Date.now() / 1000) + accessTokenLifetime,
+                    exp: Math.round(Date.now() / 1000) + 300,
                     jti: randomBytes(10).toString("hex")
                 };
                 const privateKeyPEM = jwkToPem(PRIVATE_KEY as jwkToPem.JWK, { private: true })
@@ -420,19 +416,13 @@ describe("API", () => {
             })
 
             it ("Validates authenticationToken.aud", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InJ" +
-                    "lZ2lzdHJhdGlvbi10b2tlbiJ9.eyJqd2tzX3VybCI6Imh0dHBzOi8vYnVsay" +
-                    "1kYXRhLnNtYXJ0aGVhbHRoaXQub3JnL2tleXMvRVMzODQucHVibGljLmpzb2" +
-                    "4iLCJhY2Nlc3NUb2tlbnNFeHBpcmVJbiI6MTUsImlhdCI6MTcxMTU0OTQ5Mn" +
-                    "0.0FAliOuANtkmMR_utZQLAFFmcyXgz81fWsl2ByG-Vt8";
-                const res = await tokenRequest({
-                    tokenUrl,
-                    clientId,
-                    claimsOverride: {
-                        aud: ""
-                    }
+                const tokenUrl  = `${baseUrl}/auth/token`
+                const assertion = generateRegistrationToken({
+                    clientId: DEFAULT_CLIENT_ID,
+                    claimsOverride: { aud: "" }
                 })
+                const res = await requestAccessToken(assertion)
+
                 assert.equal(res.status, 403)
                     const json = await res.json()
                     expectOAuthError(json, {
@@ -442,15 +432,8 @@ describe("API", () => {
             })
 
             it ("Validates authenticationToken's jku header", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InJ" +
-                    "lZ2lzdHJhdGlvbi10b2tlbiJ9.eyJqd2tzX3VybCI6Imh0dHBzOi8vYnVsay" +
-                    "1kYXRhLnNtYXJ0aGVhbHRoaXQub3JnL2tleXMvRVMzODQucHVibGljLmpzb2" +
-                    "4iLCJhY2Nlc3NUb2tlbnNFeHBpcmVJbiI6MTUsImlhdCI6MTcxMTU0OTQ5Mn" +
-                    "0.0FAliOuANtkmMR_utZQLAFFmcyXgz81fWsl2ByG-Vt8";
-                const res = await tokenRequest({
-                    tokenUrl,
-                    clientId,
+                const assertion = generateRegistrationToken({
+                    clientId: DEFAULT_CLIENT_ID,
                     signOptionsOverride: {
                         header: {
                             alg: PRIVATE_KEY.alg,
@@ -458,6 +441,7 @@ describe("API", () => {
                         }
                     }
                 })
+                const res = await requestAccessToken(assertion)
                 assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -468,11 +452,9 @@ describe("API", () => {
 
             it ("Can extract public keys from jwks url", async () => {
                 mockServer.mock("/keys", { body: { keys: [ PUBLIC_KEY ]}})
-                const tokenUrl = `${baseUrl}/auth/token`
                 const jwks_url = `${mockServer.baseUrl}/keys`
                 const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
-                const res = await tokenRequest({
-                    tokenUrl,
+                const assertion = generateRegistrationToken({
                     clientId,
                     claimsOverride: {
                         jwks_url
@@ -484,19 +466,18 @@ describe("API", () => {
                         }
                     }
                 })
+                const res = await requestAccessToken(assertion)
                 assert.equal(res.status, 200)
             })
 
             it ("Can extract public keys from jwks url + inline jwks", async () => {
                 mockServer.mock("/keys", { body: { keys: [ PUBLIC_KEY ]}})
-                const tokenUrl = `${baseUrl}/auth/token`
                 const jwks_url = `${mockServer.baseUrl}/keys`
                 const clientId = jwt.sign({
                     jwks_url,
                     jwks: { keys: [ PUBLIC_KEY ] }
                 }, config.jwtSecret)
-                const res = await tokenRequest({
-                    tokenUrl,
+                const assertion = generateRegistrationToken({
                     clientId,
                     claimsOverride: {
                         jwks_url
@@ -508,6 +489,7 @@ describe("API", () => {
                         }
                     }
                 })
+                const res = await requestAccessToken(assertion)
                 // console.log(await res.text())
                 assert.equal(res.status, 200)
             })
@@ -517,16 +499,10 @@ describe("API", () => {
                     { ...PUBLIC_KEY, key_ops: [] },
                     { ...PUBLIC_KEY, key_ops: null }
                 ]}})
-                const tokenUrl = `${baseUrl}/auth/token`
                 const jwks_url = `${mockServer.baseUrl}/keys`
                 const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
-                const res = await tokenRequest({
-                    tokenUrl,
-                    clientId,
-                    claimsOverride: {
-                        jwks_url
-                    }
-                })
+                const assertion = generateRegistrationToken({ clientId, claimsOverride: { jwks_url }})
+                const res = await requestAccessToken(assertion)
                 assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -537,16 +513,10 @@ describe("API", () => {
 
             it ("Rejects invalid jwks url response", async () => {
                 mockServer.mock("/keys", { body: {} })
-                const tokenUrl = `${baseUrl}/auth/token`
-                const jwks_url = `${mockServer.baseUrl}/keys`
-                const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
-                const res = await tokenRequest({
-                    tokenUrl,
-                    clientId,
-                    claimsOverride: {
-                        jwks_url
-                    }
-                })
+                const jwks_url  = `${mockServer.baseUrl}/keys`
+                const clientId  = jwt.sign({ jwks_url }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId, claimsOverride: { jwks_url }})
+                const res       = await requestAccessToken(assertion)
                 assert.equal(res.status, 400)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -561,16 +531,10 @@ describe("API", () => {
                         { ...PUBLIC_KEY, x: "3K1Lw7Qkjj5LWSk5NnIwWmkb5Yo2GkcwVtnM8xhhGdM0bI3B632QMZmqtRHQ5APF" }
                     ]
                 } })
-                const tokenUrl = `${baseUrl}/auth/token`
-                const jwks_url = `${mockServer.baseUrl}/keys`
-                const clientId = jwt.sign({ jwks_url }, config.jwtSecret)
-                const res = await tokenRequest({
-                    tokenUrl,
-                    clientId,
-                    claimsOverride: {
-                        jwks_url
-                    }
-                })
+                const jwks_url  = `${mockServer.baseUrl}/keys`
+                const clientId  = jwt.sign({ jwks_url }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId, claimsOverride: { jwks_url }})
+                const res = await requestAccessToken(assertion)
                 // console.log(await res.text())
                 assert.equal(res.status, 403)
                 const json = await res.json()
@@ -581,9 +545,9 @@ describe("API", () => {
             })
 
             it ("Can simulate expired_registration_token error", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ err: "expired_registration_token" }, config.jwtSecret)
-                const res = await tokenRequest({ tokenUrl, clientId })
+                const clientId  = jwt.sign({ err: "expired_registration_token" }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res       = await requestAccessToken(assertion)
                 assert.equal(res.status, 400)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -593,9 +557,9 @@ describe("API", () => {
             })
 
             it ("Can simulate invalid_scope error", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ err: "invalid_scope" }, config.jwtSecret)
-                const res = await tokenRequest({ tokenUrl, clientId })
+                const clientId  = jwt.sign({ err: "invalid_scope" }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res       = await requestAccessToken(assertion)
                 assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -605,9 +569,9 @@ describe("API", () => {
             })
 
             it ("Can simulate invalid_client error", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ err: "invalid_client" }, config.jwtSecret)
-                const res = await tokenRequest({ tokenUrl, clientId })
+                const clientId  = jwt.sign({ err: "invalid_client" }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res       = await requestAccessToken(assertion)
                 assert.equal(res.status, 401)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -617,14 +581,14 @@ describe("API", () => {
             })
 
             it ("Can simulate invalid_client error", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
-                const res = await tokenRequest({ tokenUrl, clientId, signOptionsOverride: {
+                const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId, signOptionsOverride: {
                     header: {
                         alg: PRIVATE_KEY.alg,
                         kid: undefined
                     }
-                } })
+                }})
+                const res = await requestAccessToken(assertion)
                 assert.equal(res.status, 400)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -634,9 +598,9 @@ describe("API", () => {
             })
 
             it ("Requires scope parameter", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
-                const res = await tokenRequest({ tokenUrl, clientId, scope: "" })
+                const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res       = await requestAccessToken(assertion, "")
                 assert.equal(res.status, 400)
                 const json = await res.json()
                 expectOAuthError(json, {
@@ -646,9 +610,9 @@ describe("API", () => {
             })
             
             it ("Can negotiate scopes", async () => {
-                const tokenUrl = `${baseUrl}/auth/token`
-                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
-                const res = await tokenRequest({ tokenUrl, clientId, scope: "x y z" })
+                const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res       = await requestAccessToken(assertion, "x y z")
                 assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
