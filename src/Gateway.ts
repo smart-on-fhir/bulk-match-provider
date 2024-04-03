@@ -113,7 +113,7 @@ export async function checkStatus(req: app.Request, res: Response) {
 
 export async function downloadFile(req: app.Request, res: Response) {
     
-    if (req.client?.err === "file_not_found") {
+    if (req.registeredClient?.err === "file_not_found") {
         throw new NotFound("File not found (simulated error)")
     }
 

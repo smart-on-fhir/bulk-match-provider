@@ -944,6 +944,25 @@ describe("API", () => {
 
     describe("Download a file", () => {
 
+        it ("Can simulate file_not_found error", async () => {
+            const clientId  = jwt.sign({
+                jwks: { keys: [ PUBLIC_KEY ] },
+                err: "file_not_found"
+            }, config.jwtSecret)
+            const assertion = generateRegistrationToken({ clientId })
+            const res = await requestAccessToken(assertion)
+            const json = await res.json()
+            const res2 = await fetch(`${baseUrl}/jobs/whatever/files/whatever`, {
+                headers: { authorization: `Bearer ${json.access_token}` }
+            })
+            const json2 = await res2.json()
+            expectOperationOutcome(json2, {
+                severity: 'error',
+                code: 404,
+                diagnostics: "File not found (simulated error)"
+            })
+        })
+
         it ("Rejects on missing jobs", async () => {
             const res = await fetch(`${baseUrl}/jobs/missingJob/files/missingFile`)
             const txt = await res.text()
