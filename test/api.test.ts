@@ -226,7 +226,99 @@ describe("API", () => {
     describe("auth", () => {
 
         describe("registration endpoint", () => {
-        
+            it ("requires 'content-type' header of 'application/x-www-form-urlencoded'", async () => {
+                const res = await fetch(`${baseUrl}/auth/register`, {
+                    method: "POST"
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Invalid request content-type header (must be 'application/x-www-form-urlencoded')"
+                })
+            })
+
+            it ("rejects invalid 'content-type' header", async () => {
+                const res = await fetch(`${baseUrl}/auth/register`, {
+                    method: "POST",
+                    headers: { "content-type": "text/plain" }
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Invalid request content-type header (must be 'application/x-www-form-urlencoded')"
+                })
+            })
+
+            it ("either jwks or jwks_url is required", async () => {
+                const res = await fetch(`${baseUrl}/auth/register`, {
+                    method: "POST",
+                    headers: { "content-type": "application/x-www-form-urlencoded" }
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Either 'jwks' or 'jwks_url' is required"
+                })
+            })
+
+            it ("detects bad jwks json", async () => {
+                const res = await fetch(`${baseUrl}/auth/register`, {
+                    method: "POST",
+                    headers: { "content-type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ jwks: "my-jwks" })
+                })
+                assert.equal(res.status, 400)
+                const json = await res.json()
+                expectOAuthError(json, {
+                    error: 'invalid_request',
+                    error_description: "Cannot parse 'jwks' as JSON"
+                })
+            })
+
+            it ("jwks can be omitted", async () => {
+                const res = await fetch(`${baseUrl}/auth/register`, {
+                    method: "POST",
+                    headers: { "content-type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ jwks_url: "my-jwks-url" })
+                })
+                assert.equal(res.status, 200)
+            })
+
+            it ("jwks_url can be omitted", async () => {
+                const res = await fetch(`${baseUrl}/auth/register`, {
+                    method: "POST",
+                    headers: { "content-type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ jwks: '{"keys":[]}' })
+                })
+                assert.equal(res.status, 200)
+            })
+
+            it ("works as expected", async () => {
+                const res = await fetch(`${baseUrl}/auth/register`, {
+                    method: "POST",
+                    headers: { "content-type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({
+                        jwks                : '{ "my-jwks": true }',
+                        jwks_url            : "my-jwks_url",
+                        accessTokensExpireIn: "22",
+                        fakeMatch           : "33",
+                        duplicates          : "44",
+                        err                 : "my-err"
+                    })
+                })
+                assert.equal(res.status, 200)
+                const text = await res.text()
+                const token = jwt.decode(text) as any
+                assert.deepEqual(token.jwks, { 'my-jwks': true })
+                assert.equal(token.jwks_url, "my-jwks_url")
+                assert.equal(token.accessTokensExpireIn, 22)
+                assert.equal(token.fakeMatches, 33)
+                assert.equal(token.duplicates, 44)
+                assert.equal(token.err, "my-err")
+            })
         })
 
         describe("token endpoint", () => {

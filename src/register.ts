@@ -21,11 +21,17 @@ export function register(req: Request, res: Response) {
         throw new InvalidRequestError("Either 'jwks' or 'jwks_url' is required");
     }
 
+    try {
+        var jwksJSON = jwks ? JSON.parse(jwks) : undefined
+    } catch (ex) {
+        throw new InvalidRequestError("Cannot parse 'jwks' as JSON");
+    }
+
     // Build the result token
     let jwtToken: Record<string, any> = {
-        jwks                : jwks ? JSON.parse(jwks) : undefined,
+        jwks                : jwksJSON,
         jwks_url            : jwks_url || undefined,
-        accessTokensExpireIn: uInt(req.body.accessTokensExpireIn, 15),
+        accessTokensExpireIn: uInt(req.body.accessTokensExpireIn, 0) || undefined,
         fakeMatches         : uInt(req.body.fakeMatch, 0),
         duplicates          : uInt(req.body.duplicates, 0),
         err                 : req.body.err
