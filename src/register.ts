@@ -1,29 +1,24 @@
-import { Request, Response } from "express"
-import jwt                   from "jsonwebtoken"
-import config                from "./config"
-import { replyWithOAuthError, uInt } from "./lib";
+import { Request, Response }   from "express"
+import jwt                     from "jsonwebtoken"
+import { InvalidRequestError } from "./OAuthError"
+import config                  from "./config"
+import { uInt }                from "./lib"
 
 
-/**
- * The POST body includes:
- * - `jwks` -
- * - `jwks_url`
- * - `err` 
- */
 export function register(req: Request, res: Response) {
 
     // console.log(req.body)
         
     // Require "application/x-www-form-urlencoded" POSTs
     if (!req.headers["content-type"] || req.headers["content-type"].indexOf("application/x-www-form-urlencoded") !== 0) {
-        return replyWithOAuthError(res, "invalid_request", "Invalid request content-type header (must be 'application/x-www-form-urlencoded')");
+        throw new InvalidRequestError("Invalid request content-type header (must be 'application/x-www-form-urlencoded')");
     }
 
     // Clients can register either by JWKS or by JWKS URL
     let jwks     = String(req.body.jwks     || "").trim();
     let jwks_url = String(req.body.jwks_url || "").trim();
     if (!jwks && !jwks_url) {
-        return replyWithOAuthError(res, "invalid_request", "Either 'jwks' or 'jwks_url' is required");
+        throw new InvalidRequestError("Either 'jwks' or 'jwks_url' is required");
     }
 
     // Build the result token
@@ -37,5 +32,5 @@ export function register(req: Request, res: Response) {
     };
 
     // Reply with signed token as text
-    res.type("text").send(jwt.sign(jwtToken, config.jwtSecret, { keyid: "registration-token" }));
+    res.type("text").send(jwt.sign(jwtToken, config.jwtSecret));
 };

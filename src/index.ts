@@ -13,6 +13,7 @@ import { smartConfig }                              from "./WellKnown"
 import { keyGenerator }                             from "./keyGenerator"
 import { register }                                 from "./register"
 import { tokenHandler }                             from "./token"
+import { OAuthError }                               from "./OAuthError"
 import {
     asyncRouteWrap,
     checkAuth,
@@ -77,6 +78,16 @@ app.use((req: Request, res: Response) => {
 
 // Global error handler
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
+
+    if (error instanceof OAuthError) {
+        if (error.type === "invalid_client" && !res.headersSent && req.headers.authorization) {
+            res.setHeader("WWW-Authenticate", "Bearer")
+        }
+        res.status(error.code).json({
+            error: error.type,
+            error_description: error.message
+        });
+    }
 
     if (!(error instanceof HttpError)) {
         error = new InternalServerError({ cause: error })

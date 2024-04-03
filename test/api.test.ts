@@ -71,7 +71,7 @@ function generateRegistrationToken({
 function tokenRequest({
     tokenUrl,
     clientId,
-    scope = "system/patient.read",
+    scope = "system/Patient.read",
     privateKey = PRIVATE_KEY,
     claimsOverride = {},
     signOptionsOverride = {}
@@ -251,7 +251,7 @@ describe("API", () => {
                         "content-type": "application/x-www-form-urlencoded"
                     }
                 })
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
                     error: 'invalid_grant',
@@ -433,7 +433,7 @@ describe("API", () => {
                         aud: ""
                     }
                 })
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 403)
                     const json = await res.json()
                     expectOAuthError(json, {
                         error: 'invalid_grant',
@@ -458,7 +458,7 @@ describe("API", () => {
                         }
                     }
                 })
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
                     error: 'invalid_grant',
@@ -508,6 +508,7 @@ describe("API", () => {
                         }
                     }
                 })
+                // console.log(await res.text())
                 assert.equal(res.status, 200)
             })
 
@@ -526,7 +527,7 @@ describe("API", () => {
                         jwks_url
                     }
                 })
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
                     error: 'invalid_grant',
@@ -571,7 +572,7 @@ describe("API", () => {
                     }
                 })
                 // console.log(await res.text())
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
                     error: 'invalid_grant',
@@ -595,7 +596,7 @@ describe("API", () => {
                 const tokenUrl = `${baseUrl}/auth/token`
                 const clientId = jwt.sign({ err: "invalid_scope" }, config.jwtSecret, { keyid: "registration-token" })
                 const res = await tokenRequest({ tokenUrl, clientId })
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
                     error: 'invalid_scope',
@@ -648,7 +649,7 @@ describe("API", () => {
                 const tokenUrl = `${baseUrl}/auth/token`
                 const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY]}}, config.jwtSecret, { keyid: "registration-token" })
                 const res = await tokenRequest({ tokenUrl, clientId, scope: "x y z" })
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 403)
                 const json = await res.json()
                 expectOAuthError(json, {
                     error: 'invalid_scope',

@@ -1,13 +1,15 @@
-import jwt, { Algorithm }      from "jsonwebtoken" 
-import lockfile from "proper-lockfile"
-import config   from "./config"
+import jwt                                       from "jsonwebtoken" 
+import lockfile                                  from "proper-lockfile"
+import config                                    from "./config"
+import { Unauthorized }                          from "./HttpError"
+import { InvalidClientError, InvalidScopeError } from "./OAuthError"
+import app from ".."
 import type {
     NextFunction,
     Request,
     RequestHandler,
     Response
 } from "express"
-import { Unauthorized } from "./HttpError"
 
 
 export function toArray(x: any): (typeof x)[] {
@@ -155,10 +157,6 @@ export function bundle<T extends fhir4.Resource>(resources: T[], baseUrl: string
     };
 }
 
-export function replyWithOAuthError(res: Response, error: string, error_description: string, code = 400) {
-    res.status(code).json({ error, error_description });
-}
-
 export function checkAuth(req: Request, res: Response, next: NextFunction)
 {
     if (req.headers.authorization) {
@@ -166,16 +164,27 @@ export function checkAuth(req: Request, res: Response, next: NextFunction)
             var token = jwt.verify(
                 req.headers.authorization.split(" ")[1],
                 config.jwtSecret,
-                { algorithms: config.supportedAlgorithms as Algorithm[] }
-            );
+                {
+                    algorithms: [ "HS256" ] // That is what we use for signing the access tokens
+                }
+            ) as app.AccessTokenResponse;
         } catch (e) {
-            throw new Unauthorized("Invalid token " + (e as Error).message);
+            console.error(e)
+            throw new Unauthorized("Invalid token: " + (e as Error).message);
         }
 
-        // @ts-ignore
-        let error = token.err || token.sim_error || token.auth_error;
-        if (error) {
-            return res.status(401).send(error);
+        const client = jwt.decode(token.client_id) as app.RegisteredClient
+
+        if (client.err === "expired_access_token") {
+            throw new InvalidClientError("Access token expired (simulated error)")
+        } else if (client.err === "expired_registration_token") {
+            throw new InvalidClientError("Registration token expired (simulated error)");
+        } else if (client.err === "invalid_access_token") {
+            throw new InvalidClientError("Invalid access token (simulated error)");
+        } else if (client.err === "invalid_client") {
+            throw new InvalidClientError("Invalid client (simulated error)");
+        } else if (client.err === "invalid_scope") {
+            throw new InvalidScopeError("Invalid scope (simulated error)");
         }
     }
 

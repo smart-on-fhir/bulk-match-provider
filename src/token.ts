@@ -1,21 +1,15 @@
-import { Request, Response } from "express"
-import jwt, { Algorithm }    from "jsonwebtoken"
-import jwkToPem              from "jwk-to-pem"
-import config                from "./config"
-import { asyncRouteWrap, getRequestBaseURL, replyWithOAuthError } from "./lib"
-
-
-// -----------------------------------------------------------------------------
-// client_id token `err` possible values
-// -----------------------------------------------------------------------------
-// expired_registration_token
-// invalid_scope
-// invalid_client
-// invalid_access_token
-// expired_access_token
-// -----------------------------------------------------------------------------
-// client_id token `accessTokensExpireIn` = time in minutes
-// -----------------------------------------------------------------------------
+import { Request, Response }                 from "express"
+import jwt, { Algorithm }                    from "jsonwebtoken"
+import jwkToPem                              from "jwk-to-pem"
+import config                                from "./config"
+import { asyncRouteWrap, getRequestBaseURL } from "./lib"
+import {
+    InvalidClientError,
+    InvalidGrantError,
+    InvalidRequestError,
+    InvalidScopeError,
+    UnsupportedGrantTypeError
+} from "./OAuthError"
 
 
 export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) => {
@@ -25,48 +19,42 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
     // Require "application/x-www-form-urlencoded" POSTs -----------------------
     let ct = req.headers["content-type"] || "";
     if (ct.indexOf("application/x-www-form-urlencoded") !== 0) {
-        return replyWithOAuthError(
-            res,
-            "invalid_request",
+        throw new InvalidRequestError(
             "Invalid request content-type header (must be 'application/x-www-form-urlencoded')"
         );
     }
 
     // grant_type --------------------------------------------------------------
     if (!req.body.grant_type) {
-        return replyWithOAuthError(
-            res,
-            "invalid_grant",
-            "Missing grant_type parameter"
-        );
+        throw new InvalidGrantError("Missing grant_type parameter");
     }
 
     if (req.body.grant_type != "client_credentials") {
-        return replyWithOAuthError(
-            res,
-            "unsupported_grant_type",
+        throw new UnsupportedGrantTypeError(
             "The grant_type parameter should equal 'client_credentials'"
         );
     }
 
     // client_assertion_type ---------------------------------------------------
     if (!req.body.client_assertion_type) {
-        return replyWithOAuthError(res, "invalid_request", "Missing client_assertion_type parameter");
+        throw new InvalidRequestError("Missing client_assertion_type parameter");
     }
 
     if (req.body.client_assertion_type !== "urn:ietf:params:oauth:client-assertion-type:jwt-bearer") {
-        return replyWithOAuthError(res, "invalid_request", "Invalid client_assertion_type parameter. Must be 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'.");
+        throw new InvalidRequestError(
+            "Invalid client_assertion_type parameter. Must be 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'."
+        );
     }
 
     // client_assertion must be a token ----------------------------------------
     if (!req.body.client_assertion) {
-        return replyWithOAuthError(res, "invalid_request", "Missing client_assertion parameter");
+        throw new InvalidRequestError("Missing client_assertion parameter");
     }
     
     const authenticationToken = jwt.decode(req.body.client_assertion, { complete: true, json: true });
     
     if (!authenticationToken) {
-        return replyWithOAuthError(res, "invalid_request", "Invalid registration token");
+        throw new InvalidRequestError("Invalid registration token");
     }
 
     const authenticationTokenPayload = authenticationToken.payload as jwt.JwtPayload
@@ -74,44 +62,46 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
 
     // The client_id must be a token -------------------------------------------
     if (!authenticationTokenPayload.sub || !authenticationTokenPayload.iss || authenticationTokenPayload.sub !== authenticationTokenPayload.iss) {
-        return replyWithOAuthError(res, "invalid_request", "The client ID must be set at both the iss and sub claims of the registration token");
+        throw new InvalidRequestError(
+            "The client ID must be set at both the iss and sub claims of the registration token"
+        );
     }
     
     const clientDetailsToken = jwt.decode(authenticationTokenPayload.sub as string, { complete: true, json: true });
 
     if (!clientDetailsToken) {
-        return replyWithOAuthError(res, "invalid_request", "Invalid client ID");
+        throw new InvalidRequestError("Invalid client ID");
     }
 
     const clientDetailsTokenPayload = clientDetailsToken.payload as jwt.JwtPayload
 
     // simulate expired registration token error -------------------------------
     if (clientDetailsTokenPayload.err === "expired_registration_token") {
-        return replyWithOAuthError(res, "invalid_request", "Registration token expired (simulated error)");
+        throw new InvalidRequestError("Registration token expired (simulated error)");
     }
 
     // simulated invalid scope error -------------------------------------------
     if (clientDetailsTokenPayload.err === "invalid_scope") {
-        return replyWithOAuthError(res, "invalid_scope", "Invalid scope (simulated error)");
+        throw new InvalidScopeError("Invalid scope (simulated error)");
     }
 
     // simulated invalid client error -------------------------------------------
     if (clientDetailsTokenPayload.err === "invalid_client") {
-        return replyWithOAuthError(res, "invalid_client", "Invalid client (simulated error)", 401);
+        throw new InvalidClientError("Invalid client (simulated error)");
     }
 
     // Validate authenticationToken.aud (must equal this url) ------------------
     const tokenUrl = baseUrl + req.originalUrl;
     const aud = (authenticationTokenPayload as jwt.JwtPayload).aud + ""
     if (tokenUrl.replace(/^https?/, "") !== aud.replace(/^https?/, "")) {
-        return replyWithOAuthError(res, "invalid_grant", `Invalid token 'aud' claim. Must be '${tokenUrl}'.`);
+        throw new InvalidGrantError(`Invalid token 'aud' claim. Must be '${tokenUrl}'.`);
     }
 
     // Get the "kid" from the authentication token header
     let kid = authenticationTokenHeaders.kid!;
 
     if (!authenticationTokenHeaders.kid) {
-        return replyWithOAuthError(res, "invalid_request", "The registration header must have a kid header");
+        throw new InvalidRequestError("The registration header must have a kid header");
     }
 
     // If the jku header is present, verify that the jku is whitelisted
@@ -119,9 +109,7 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
     // the specified `client_id`). If the jku header is not whitelisted, the
     // signature verification fails.
     if (authenticationTokenHeaders.jku && authenticationTokenHeaders.jku !== clientDetailsTokenPayload.jwks_url) {
-        return replyWithOAuthError(
-            res,
-            "invalid_grant",
+        throw new InvalidGrantError(
             `The provided jku '${authenticationTokenHeaders.jku
             }' is different than the one used at registration time (${
             clientDetailsTokenPayload.jwks_url})`
@@ -135,17 +123,13 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
             jwks    : clientDetailsTokenPayload.jwks
         })
     } catch (ex) {
-        return replyWithOAuthError(
-            res,
-            "invalid_request",
+        throw new InvalidRequestError(
             `Unable to obtain public keys: '${(ex as Error).message}'`
         );
     }
 
     if (!publicKeys.length) {
-        return replyWithOAuthError(
-            res,
-            "invalid_grant",
+        throw new InvalidGrantError(
             `No public keys found in the JWKS with "kid" equal to "${kid}"`
         );
     }
@@ -163,23 +147,19 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
     })
 
     if (!verified) {
-        return replyWithOAuthError(
-            res,
-            "invalid_grant",
+        throw new InvalidGrantError(
             "Unable to verify the token with any of the public keys found in the JWKS"
         );
     }
 
     if (!req.body.scope) {
-        return replyWithOAuthError(res, "invalid_request", "Missing scope parameter");
+        throw new InvalidRequestError("Missing scope parameter");
     }
 
     const grantedScopes = negotiateScopes(req.body.scope)
         
     if (!grantedScopes.length) {
-        return replyWithOAuthError(
-            res,
-            "invalid_scope",
+        throw new InvalidScopeError(
             `No access could be granted for scopes "${req.body.scope}".`
         );
     }
@@ -201,7 +181,10 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
         expires_in: expiresIn
     };
     
-    tokenBody.access_token = jwt.sign(tokenBody, config.jwtSecret, { expiresIn });
+    tokenBody.access_token = jwt.sign(tokenBody, config.jwtSecret, {
+        expiresIn,
+        // algorithm: 
+    });
 
     res.json(tokenBody);
 });
@@ -252,5 +235,5 @@ async function fetchJwksUrl(input: string | URL | globalThis.Request, options?: 
 
 function negotiateScopes(list: string) {
     const scopes = list.trim().split(/\s+/)
-    return scopes.filter(s => s === "system/patient.read") // FIXME: What scopes should we support?
+    return scopes.filter(s => s === "system/Patient.read") // FIXME: What scopes should we support?
 }
