@@ -6,8 +6,13 @@ import { IncomingHttpHeaders }                             from "http"
 import config                                              from "./config"
 import Job                                                 from "./Job"
 import { createOperationOutcome, getRequestBaseURL, uInt } from "./lib"
-import { BadRequest, PayloadTooLarge }                     from "./HttpError"
 import type app                                            from "../index"
+import {
+    BadRequest,
+    NotFound,
+    PayloadTooLarge,
+    TooManyRequests
+} from "./HttpError"
 
 
 export async function abort(req: Request, res: Response) {
@@ -41,11 +46,15 @@ export async function listJobs(req: Request, res: Response) {
     res.json(result)
 }
 
-export async function checkStatus(req: Request, res: Response) {
+export async function checkStatus(req: app.Request, res: Response) {
     try {
         var job = await Job.byId(req.params.id)
     } catch (ex) {
         return res.status(404).json(createOperationOutcome(ex))
+    }
+
+    if (req.client?.err === "too_frequent_status_requests") {
+        throw new TooManyRequests("Too frequent status requests (simulated error)")
     }
 
     if (job.error) {
@@ -102,7 +111,12 @@ export async function checkStatus(req: Request, res: Response) {
     res.status(202).end()
 }
 
-export async function downloadFile(req: Request, res: Response) {
+export async function downloadFile(req: app.Request, res: Response) {
+    
+    if (req.client?.err === "file_not_found") {
+        throw new NotFound("File not found (simulated error)")
+    }
+
     const dir = Path.join(config.jobsDir, req.params.id)
 
     if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
@@ -124,7 +138,12 @@ export async function downloadFile(req: Request, res: Response) {
     })
 }
 
-export async function kickOff(req: Request, res: Response) {
+export async function kickOff(req: app.Request, res: Response) {
+    
+    if (req.client?.err === "too_many_patient_params") {
+        throw new BadRequest("Too many patient parameters (simulated error)")
+    }
+
     validateMatchHeaders(req.headers)
     const params = getMatchParameters(req.body as fhir4.Parameters)
     const baseUrl = getRequestBaseURL(req);

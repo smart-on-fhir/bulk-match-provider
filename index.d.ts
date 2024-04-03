@@ -1,3 +1,5 @@
+import { Request as ExpressRequest, ParamsDictionary } from "express-serve-static-core"
+
 export type JSONScalar = string | number | boolean | null;
 export type JSONArray  = JSONValue[];
 export type JSONObject = { [ key: string ]: JSONValue };
@@ -185,6 +187,75 @@ declare namespace app {
         "invalid_scope";
 
 
+    interface AccessTokenResponse {
+        
+        /** Fixed value "bearer" */
+        token_type: "bearer"
+
+        /** Granted scopes */
+        scope: string
+
+        /** Signed client JWT */
+        client_id: string
+
+        /** Number of seconds for the access token lifetime */
+        expires_in: number
+        
+        /** Access token issuedAt timestamp in seconds */
+        iat: number
+
+        /** Access token expiresAt timestamp in seconds */
+        exp: number
+    }
+
+    interface RegisteredClient {
+        
+        /**
+         * A JWKS object with one or more JWK public keys, if the client was
+         * registered that way
+         */
+        jwks?: { keys: JsonWebKey[] }
+
+        /**
+         * An URL to JWKS file, if the client was registered that way
+         */
+        jwks_url?: string
+
+        /**
+         * Simulated error chosen at registration time
+         */
+        err?: "expired_registration_token" |
+              "invalid_scope" |
+              "invalid_client" |
+              "invalid_access_token" |
+              "expired_access_token" |
+              "too_many_patient_params" |
+              "too_frequent_status_requests" |
+              "file_not_found"
+
+        /**
+         * Percent of fake matches
+         */
+        fakeMatches?: number
+
+        /**
+         * Percent of fake duplicates
+         */
+        duplicates?: number,
+
+        /** Client issuedAt timestamp in seconds */
+        iat: number
+    }
+
+    interface Request<
+        P = ParamsDictionary,
+        ResBody = any,
+        ReqBody = any,
+        ReqQuery = ParsedQs,
+        Locals extends Record<string, any> = Record<string, any>
+    > extends ExpressRequest<P, ResBody, ReqBody, ReqQuery, Locals> {
+        client?: RegisteredClient
+    }
 }
 
 export = app;
