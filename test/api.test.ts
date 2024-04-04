@@ -1125,6 +1125,27 @@ describe("API", () => {
             assert.match(txt, /File not found/)
         })
 
+        it ("Requires auth if requiresAccessToken is true in the manifest", async () => {
+            const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }}, config.jwtSecret)
+            const assertion = generateRegistrationToken({ clientId })
+            const res       = await requestAccessToken(assertion)
+            const json      = await res.json()
+            const res2      = await match(baseUrl, {
+                resource: [ { resourceType: "Patient", id: "#1" } ],
+                headers : { authorization: `Bearer ${json.access_token}` }
+            })
+            const statusUrl = res2.headers.get("content-location")
+            const jobId     = statusUrl!.match(/\/jobs\/(.*?)\/status$/)![1]
+            const res3      = await fetch(`${baseUrl}/jobs/${jobId}/files/whatever`)
+            const json3     = await res3.json()
+
+            expectOperationOutcome(json3, {
+                severity: 'error',
+                code: 401,
+                diagnostics: "Authentication is required for downloading these resources"
+            })
+        })
+
         it ("Works", async () => {
             const res = await match(baseUrl, {
                 resource: [

@@ -11,7 +11,8 @@ import {
     BadRequest,
     NotFound,
     PayloadTooLarge,
-    TooManyRequests
+    TooManyRequests,
+    Unauthorized
 } from "./HttpError"
 
 
@@ -117,13 +118,19 @@ export async function downloadFile(req: app.Request, res: Response) {
         throw new NotFound("File not found (simulated error)")
     }
 
-    const dir = Path.join(config.jobsDir, req.params.id)
-
-    if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
+    try {
+        var job = await Job.byId(req.params.id)
+    } catch (ex) {
         return res.status(404).json(createOperationOutcome("Export job not found"))
     }
 
-    const path = Path.join(dir, "files", req.params.file)
+    // If the requiresAccessToken field in the Complete Status body is set to
+    // true, the request SHALL include a valid access token
+    if (job.manifest.requiresAccessToken && !req.registeredClient) {
+        throw new Unauthorized("Authentication is required for downloading these resources")
+    }
+
+    const path = Path.join(job.path, "files", req.params.file)
 
     if (!statSync(path, { throwIfNoEntry: false })?.isFile()) {
         return res.status(404).json(createOperationOutcome("File not found"))
