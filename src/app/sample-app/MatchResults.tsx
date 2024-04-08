@@ -43,7 +43,9 @@ export default function MatchResults({ manifest }: { manifest: MatchManifest }) 
                         <ul>
                         { entry.results?.entry?.map((o, y) => (
                             <li key={y}>
-                                <a href={ o.fullUrl } target="_blank" rel="noreferrer noopener">{ humanName((o.resource as fhir4.Patient)) }<i className="bi bi-box-arrow-up-right ms-1 me-3"/></a>
+                                { manifest.extension?.percentFakeMatches ?
+                                    humanName((o.resource as fhir4.Patient)) :
+                                    <a href={ o.fullUrl } target="_blank" rel="noreferrer noopener">{ humanName((o.resource as fhir4.Patient)) }<i className="bi bi-box-arrow-up-right ms-1 me-3"/></a> }
                                 <span className="small text-muted">{ o.search?.score ? " (" + roundToPrecision(o.search.score * 100, 2) + "% match)" : "" }</span>
                             </li>
                         )) }

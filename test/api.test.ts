@@ -10,6 +10,7 @@ import { wait }             from "../src/lib"
 import patients             from "../src/patients"
 import MockServer           from "./MockServer"
 import app                  from ".."
+import BulkMatchClient      from "./BulkMatchClient"
 import "./init-tests"
 
 const PUBLIC_KEY = {
@@ -41,65 +42,6 @@ const DEFAULT_CLIENT_ID = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InJ" +
     "4iLCJhY2Nlc3NUb2tlbnNFeHBpcmVJbiI6MTUsImlhdCI6MTcxMTU0OTQ5Mn" +
     "0.0FAliOuANtkmMR_utZQLAFFmcyXgz81fWsl2ByG-Vt8";
 
-// -----------------------------------------------------------------------------
-
-
-
-
-
-
-
-async function match(baseUrl: string, {
-    resource,
-    onlyCertainMatches,
-    onlySingleMatch,
-    count,
-    _outputFormat,
-    headers
-}: {
-    resource?: (fhir4.Patient | any)[]
-    onlyCertainMatches?: any
-    onlySingleMatch?: any
-    count?: any
-    _outputFormat?: any,
-    headers?: HeadersInit
-} = {}) {
-    const body: fhir4.Parameters = {
-        resourceType: "Parameters",
-        id: "example",
-        parameter: []
-    }
-
-    if (resource) {
-        resource.forEach(r => body.parameter!.push({ name: "resource", resource: r }))
-    }
-
-    if (onlyCertainMatches !== undefined) {
-        body.parameter!.push({ name: "onlyCertainMatches", valueBoolean: onlyCertainMatches })
-    }
-
-    if (onlySingleMatch !== undefined) {
-        body.parameter!.push({ name: "onlySingleMatch", valueBoolean: onlySingleMatch })
-    }
-
-    if (count !== undefined) {
-        body.parameter!.push({ name: "count", valueInteger: count })
-    }
-
-    if (_outputFormat !== undefined) {
-        body.parameter!.push({ name: "_outputFormat", valueString: _outputFormat })
-    }
-
-    return fetch(`${baseUrl}/fhir/Patient/$bulk-match`, {
-        method : "POST",
-        body: JSON.stringify(body),
-        headers: {
-            "Content-Type": "application/json",
-            accept: "application/fhir+ndjson",
-            ...headers
-        }
-    })
-}
 
 function expectOperationOutcome(json: any, {
     severity,
@@ -761,13 +703,14 @@ describe("API", () => {
     // submit them serially. See the Response - Error section below for more
     // details.
 
-    describe("$bulk-match", () => {
+    describe("$bulk-match", function() {
+        this.timeout(15000)
 
         it ("Can simulate too_many_patient_params error", async () => {
-            const clientId  = jwt.sign({
+            const clientId  = BulkMatchClient.register({
                 jwks: { keys: [ PUBLIC_KEY ] },
                 err: "too_many_patient_params"
-            }, config.jwtSecret)
+            })
             const assertion = generateRegistrationToken({ clientId })
             const res = await requestAccessToken(assertion)
             const json = await res.json()
@@ -844,7 +787,8 @@ describe("API", () => {
         })
 
         it ("Rejects empty resource parameters", async () => {
-            const res = await match(baseUrl)
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({ resource: [] })
             assert.equal(res.status, 400)
             const json = await res.json()
             expectOperationOutcome(json, {
@@ -858,7 +802,8 @@ describe("API", () => {
             const originalLimit = config.resourceParameterLimit
             try {
                 config.resourceParameterLimit = 2
-                const res = await match(baseUrl, {
+                const client = new BulkMatchClient({ baseUrl })
+                const res = await client.kickOff({
                     resource: [
                         { resourceType: "Patient", id: 1 },
                         { resourceType: "Patient", id: 2 },
@@ -880,7 +825,8 @@ describe("API", () => {
         })
 
         it ("Rejects invalid Patient resources", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
                 resource: [ { resourceType: "X" } ]
             })
             assert.equal(res.status, 400)
@@ -893,7 +839,8 @@ describe("API", () => {
         })
 
         it ("Rejects Patient resources without IDs", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
                 resource: [
                     { resourceType: "Patient", id: 1 },
                     { resourceType: "Patient" }
@@ -909,7 +856,8 @@ describe("API", () => {
         })
 
         it ("Validates the onlySingleMatch parameter", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
                 resource: [{ resourceType: "Patient", id: 1 }],
                 onlySingleMatch: null
             })
@@ -923,7 +871,8 @@ describe("API", () => {
         })
         
         it ("Validates the onlyCertainMatches parameter", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
                 resource: [{ resourceType: "Patient", id: 1 }],
                 onlyCertainMatches: null
             })
@@ -937,7 +886,8 @@ describe("API", () => {
         })
 
         it ("Validates the count parameter", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
                 resource: [{ resourceType: "Patient", id: 1 }],
                 count: null
             })
@@ -951,7 +901,8 @@ describe("API", () => {
         })
 
         it ("Validates the _outputFormat parameter", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
                 resource: [{ resourceType: "Patient", id: 1 }],
                 _outputFormat: null
             })
@@ -966,8 +917,50 @@ describe("API", () => {
             })
         })
 
+        it ("Rejects percentFakeMatches with zero input patients", async () => {
+            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 60 })
+            const assertion = generateRegistrationToken({ clientId })
+            const res1      = await requestAccessToken(assertion)
+            const json1     = await res1.json()
+            const client    = new BulkMatchClient({ baseUrl, accessToken: json1.access_token })
+            const res       = await client.kickOff({ resource: [] })
+            expectOperationOutcome(await res.json(), {
+                severity: 'error',
+                code: 400,
+                diagnostics: "At least one resource parameter must be provided"
+            })
+        })
+
+        it ("percentFakeMatches", async () => {
+            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 60 })
+            const assertion = generateRegistrationToken({ clientId })
+            const res1      = await requestAccessToken(assertion)
+            const json1     = await res1.json()
+            const client    = new BulkMatchClient({
+                baseUrl,
+                accessToken: json1.access_token
+            })
+
+            const res = await client.kickOff({
+                resource: [
+                    { resourceType: "Patient", id: "#1" },
+                    { resourceType: "Patient", id: "#2" },
+                    { resourceType: "Patient", id: "#3" },
+                ],
+                // headers: {
+                //     authorization: `Bearer ${json1.access_token}`
+                // }
+            })
+
+            const result = await client.waitForCompletion()
+
+            // console.log(result, client)
+            assert.equal(result.extension.percentFakeMatches, 60)
+        })
+
         it ("Works", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
                 resource: [
                     { resourceType: "Patient", id: "#1" },
                     { resourceType: "Patient", id: "#2" },
@@ -1016,15 +1009,15 @@ describe("API", () => {
             const res1      = await requestAccessToken(assertion)
             const { access_token } = await res1.json()
             
-            const res2 = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            const res2 = await client.kickOff({
                 resource: [ { resourceType: "Patient", id: "#1" } ],
                 headers: { authorization: `Bearer ${access_token}` }
             })
 
             assert.equal(res2.status, 202)
-            const statusUrl = res2.headers.get("content-location")
             await wait(config.jobThrottle * 2 + 10 - config.throttle)
-            const res3 = await fetch(statusUrl + "")
+            const res3 = await fetch(client.statusLocation)
             assert.equal(res3.status, 200)
             const json = await res3.json()
             // console.log(json)
@@ -1038,7 +1031,8 @@ describe("API", () => {
                 config.retryAfter = 100
                 const startDate = moment()
 
-                const res = await match(baseUrl, {
+                const client = new BulkMatchClient({ baseUrl })
+                const res = await client.kickOff({
                     resource: [
                         { resourceType: "Patient", id: "#1" },
                         { resourceType: "Patient", id: "#2" },
@@ -1048,30 +1042,28 @@ describe("API", () => {
 
                 assert.equal(res.status, 202)
 
-                const statusUrl = res.headers.get("content-location")
-
-                const res2 = await fetch(statusUrl + "")
+                const res2 = await fetch(client.statusLocation)
                 assert.equal(res2.status, 202)
                 assert.equal(res2.headers.get("x-progress"), "0% complete")
                 assert.equal(res2.headers.get("retry-after"), "1")
 
                 await wait(config.jobThrottle + 10 - config.throttle)
 
-                const res3 = await fetch(statusUrl + "")
+                const res3 = await fetch(client.statusLocation)
                 assert.equal(res3.status, 202)
                 assert.equal(res3.headers.get("x-progress"), "33% complete")
                 assert.equal(res3.headers.get("retry-after"), "1")
 
                 await wait(config.jobThrottle + 10 - config.throttle)
 
-                const res4 = await fetch(statusUrl + "")
+                const res4 = await fetch(client.statusLocation)
                 assert.equal(res4.status, 202)
                 assert.equal(res4.headers.get("x-progress"), "66% complete")
                 assert.equal(res4.headers.get("retry-after"), "1")
 
                 await wait(config.jobThrottle + 10 - config.throttle)
 
-                const res5 = await fetch(statusUrl + "")
+                const res5 = await fetch(client.statusLocation)
                 assert.equal(res5.status, 200)
                 const json = await res5.json()
                 
@@ -1115,11 +1107,12 @@ describe("API", () => {
         })
 
         it ("Rejects on missing files", async () => {
-            const res       = await match(baseUrl, { resource: [ { resourceType: "Patient", id: "#1" } ] })
-            const statusUrl = res.headers.get("content-location") + ""
-            const jobId     = statusUrl.match(/\/jobs\/(.+?)\/status$/)?.[1]
+            const client = new BulkMatchClient({ baseUrl })
+            const res = await client.kickOff({
+                resource: [ { resourceType: "Patient", id: "#1" } ]
+            })
             await wait(200)
-            const res2 = await fetch(`${baseUrl}/jobs/${jobId}/files/missingFile`)
+            const res2 = await fetch(`${baseUrl}/jobs/${client.jobId}/files/missingFile`)
             const txt = await res2.text()
             assert.equal(res2.status, 404)
             assert.match(txt, /File not found/)
@@ -1130,13 +1123,12 @@ describe("API", () => {
             const assertion = generateRegistrationToken({ clientId })
             const res       = await requestAccessToken(assertion)
             const json      = await res.json()
-            const res2      = await match(baseUrl, {
+            const client    = new BulkMatchClient({ baseUrl })
+            const res2      = await client.kickOff({
                 resource: [ { resourceType: "Patient", id: "#1" } ],
                 headers : { authorization: `Bearer ${json.access_token}` }
             })
-            const statusUrl = res2.headers.get("content-location")
-            const jobId     = statusUrl!.match(/\/jobs\/(.*?)\/status$/)![1]
-            const res3      = await fetch(`${baseUrl}/jobs/${jobId}/files/whatever`)
+            const res3      = await fetch(`${baseUrl}/jobs/${client.jobId}/files/whatever`)
             const json3     = await res3.json()
 
             expectOperationOutcome(json3, {
@@ -1147,7 +1139,8 @@ describe("API", () => {
         })
 
         it ("Works", async () => {
-            const res = await match(baseUrl, {
+            const client = new BulkMatchClient({ baseUrl })
+            await client.kickOff({
                 resource: [
                     {
                         "resourceType": "Patient",
@@ -1163,10 +1156,9 @@ describe("API", () => {
                 ]
             })
 
-            assert.equal(res.status, 202)
-            const statusUrl = res.headers.get("content-location")
-            await wait(config.retryAfter - config.throttle)
-            const manifest = await (await fetch(statusUrl + "")).json()
+            await client.waitForCompletion()
+
+            const manifest = client.manifest
 
             assert.equal(manifest.output.length, 1)
             assert.equal(manifest.output[0].type, "Bundle")
@@ -1194,12 +1186,11 @@ describe("API", () => {
 
     describe("Get one job", () => {
         it ("Works", async () => {
-            const res       = await match(baseUrl, { resource: [ { resourceType: "Patient", id: "#1" } ] })
-            const statusUrl = res.headers.get("content-location") + ""
-            const jobId     = statusUrl.match(/\/jobs\/(.+?)\/status$/)?.[1]
-            const res2 = await fetch(`${baseUrl}/jobs/${jobId}`)
+            const client    = new BulkMatchClient({ baseUrl })
+            await client.kickOff({ resource: [ { resourceType: "Patient", id: "#1" } ] })
+            const res2 = await fetch(`${baseUrl}/jobs/${client.jobId}`)
             const json = await res2.json()
-            assert.equal(json.id, jobId)
+            assert.equal(json.id, client.jobId)
         })
     })
 
@@ -1212,9 +1203,9 @@ describe("API", () => {
             // MAY use the request as a signal that a client is done retrieving
             // files and that it is safe for the sever to remove those from
             // storage.
-            const res       = await match(baseUrl, { resource: [ { resourceType: "Patient", id: "#1" } ] })
-            const statusUrl = res.headers.get("content-location") + ""
-            const res2      = await fetch(statusUrl, { method: "DELETE" })
+            const client    = new BulkMatchClient({ baseUrl })
+            const res       = await client.kickOff({ resource: [ { resourceType: "Patient", id: "#1" } ] })
+            const res2      = await client.cancel()
             const txt       = await res2.text()
             assert.equal(res2.status, 202)
             assert.match(txt, /Job deleted/)
@@ -1222,7 +1213,7 @@ describe("API", () => {
             // Following the delete request, when subsequent requests are made
             // to the polling location, the server SHALL return a 404 Not Found
             // error and an associated FHIR OperationOutcome in JSON format.
-            const res3      = await fetch(statusUrl, { method: "DELETE" })
+            const res3      = await client.cancel()
             const txt3      = await res3.text()
             assert.equal(res3.status, 404)
             assert.match(txt3, /Job not found/)

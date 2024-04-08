@@ -2,6 +2,7 @@ import Path                              from "path"
 import crypto                            from "crypto"
 import {existsSync, statSync }           from "fs"
 import { format }                        from "node:util"
+import { FhirResource, Patient }         from "fhir/r4"
 import config                            from "./config"
 import { lock, wait }                    from "./lib"
 import { InternalServerError, NotFound } from "./HttpError"
@@ -15,6 +16,26 @@ import {
     writeFile
 } from "fs/promises"
 
+
+interface JobOptions {
+
+    /**
+     * If true, set the `requiresAccessToken` property of the manifest to true
+     * and require auth for downloading
+     */
+    authenticated: boolean
+
+    /**
+     * Percents if the input patients that should be reported as matched.
+     * If this is `0` (the default value), it will be ignored and we will try
+     * to do actual matching instead
+     */
+    percentFakeMatches: number
+
+    percentFakeDuplicates: number
+
+    simulatedError: string
+}
 
 export default class Job
 {
@@ -41,6 +62,13 @@ export default class Job
 
     public error: string = "";
 
+    protected options: JobOptions = {
+        authenticated: false,
+        percentFakeMatches: 0,
+        percentFakeDuplicates: 0,
+        simulatedError: ""
+    };
+
     public manifest: app.MatchManifest = {
         transactionTime    : "",
         request            : "",
@@ -63,14 +91,26 @@ export default class Job
         Job.instances[this.id] = this
     }
 
-    static async create(baseUrl: string, authenticated = false) {
+    static async create(baseUrl: string, options: Partial<JobOptions> = {}) {
         const job = new Job()
         job.baseUrl = baseUrl
+        Object.assign(job.options, options)
+
         job.updateManifest({
             request        : baseUrl + "/fhir/Patient/$bulk-match",
             transactionTime: new Date().toUTCString(),
-            requiresAccessToken: !!authenticated
+            requiresAccessToken: job.options.authenticated
         })
+
+        if (options.percentFakeMatches || options.percentFakeDuplicates) {
+            job.updateManifest({
+                extension: {
+                    percentFakeMatches   : options.percentFakeMatches    || undefined,
+                    percentFakeDuplicates: options.percentFakeDuplicates || undefined
+                }
+            })
+        }
+
         return await job.save()
     }
 
@@ -91,7 +131,83 @@ export default class Job
         return this;
     }
 
+    async fakeRun(params: app.MatchOperationParams)
+    {
+        const resources = params.resource
+        const n = Math.floor(resources.length / 100 * this.options.percentFakeMatches)
+
+        if (n < 1) {
+            this.updateManifest({ output: [] })
+            this._percentage = 100
+            return await this.save()
+        }
+
+        const results = resources
+            .map(r => r.resource as Patient)
+            .sort((a, b) => a!.id!.localeCompare(b!.id!))
+            .slice(0, n)
+        let i = 0
+
+        while (i < n) {
+            const result = results[i++]
+            const bundle: fhir4.Bundle = {
+                resourceType: "Bundle",
+                type : "searchset",
+                total: results.length,
+                meta: {
+                    extension: [{
+                        url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
+                        valueReference: {
+                            reference: `Patient/${result.id}`
+                        }
+                    }]
+                },
+                entry: [
+                    {
+                        fullUrl: `Patient/${result.id}`,
+                        resource: result as FhirResource,
+                        search: {
+                            extension: [{
+                                url: "http://hl7.org/fhir/StructureDefinition/match-grade",
+                                valueCode: "certain"
+                            }],
+                            mode : "match",
+                            score: 1
+                        }
+                    }
+                ]
+            };
+            
+            if (!this.abortController.signal.aborted && !existsSync(this.path + "/files")) {
+                await mkdir(this.path + "/files")
+            }
+            await writeFile(
+                Path.join(this.path, "/files/" + result.id + `-patient-matches.ndjson`),
+                JSON.stringify(bundle) + "\n",
+                { flag: "w+", encoding: "utf8", signal: this.abortController.signal }
+            );
+            this.updateManifest({
+                output: [
+                    ...this.manifest.output,
+                    {
+                        type : "Bundle",
+                        count: 1,
+                        url  : this.baseUrl + "/jobs/" + this.id + "/files/" + result.id + `-patient-matches.ndjson`
+                    }
+                ]
+            })
+            this._percentage = Math.round(i / n * 100)
+            await this.save()
+            await wait(config.jobThrottle, { signal: this.abortController.signal })
+        }
+        this._percentage = 100
+        await this.save()
+    }
+
     async run(params: app.MatchOperationParams, options: app.MatchOperationOptions = {}) {
+        if (this.options.percentFakeMatches) {
+            return this.fakeRun(params)
+        }
         try {
             const inputPatients = params.resource.map(r => r.resource as fhir4.Patient)
         
@@ -131,7 +247,7 @@ export default class Job
                         reference: `Patient/${input.id}`
                     }
                 }]
-            },                  
+            },
             entry: result
         };
         if (!this.abortController.signal.aborted && !existsSync(this.path + "/files")) {
@@ -210,6 +326,7 @@ export default class Job
             manifest      : this.manifest,
             notBefore     : this.notBefore,
             error         : this.error,
+            options       : this.options,
             // parameters    : this.parameters,
             // authorizations: this.authorizations,
         }
@@ -276,6 +393,7 @@ export default class Job
         
         try {
             Object.assign(job, json)
+            job._percentage = json._percentage
         } catch (e) {
             await release()
             throw new InternalServerError("Export job could not be loaded", { cause: e })
