@@ -33,6 +33,9 @@ export function getCertainty(score: number)
     return "certainly-not"
 }
 
+/**
+ * Matches ONE patient fragment against ALL the patients we have
+ */
 export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[], baseUrl: string)
 {
     const out: fhir4.BundleEntry[] = []
