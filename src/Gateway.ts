@@ -69,6 +69,8 @@ export async function checkStatus(req: app.Request, res: Response) {
         ).json(job.manifest)
     }
 
+    const release = await Job.lock(job.id)
+
     res.header("Access-Control-Expose-Headers", "X-Progress,Retry-after")
 
     const now = Date.now()
@@ -90,13 +92,15 @@ export async function checkStatus(req: app.Request, res: Response) {
             // return a 429 Too Many Requests status code and terminate the session.
             if (retryAfter > (RETRY_AFTER / 1000) * 10) {
                 await job.destroy()
+                await release()
                 return res.status(429).json(createOperationOutcome(
                     "Too many requests made ignoring the retry-after header hint. Session terminated!",
                     { severity: "fatal" }
                 ))
             }
 
-            await job.save()
+            await job.save("updated notBefore", true)
+            await release()
             res.header("Retry-after", retryAfter + "")
             return res.status(429).json(createOperationOutcome(
                 "Too many requests made. Please respect the retry-after header!",
@@ -106,10 +110,11 @@ export async function checkStatus(req: app.Request, res: Response) {
     }
 
     job.notBefore = now + RETRY_AFTER
-    await job.save()
+    await job.save("updated notBefore", true)
     res.header("X-Progress" , job.percentage + "% complete")
     res.header("Retry-after", Math.ceil(RETRY_AFTER / 1000) + "")
     res.status(202).end()
+    await release()
 }
 
 export async function downloadFile(req: app.Request, res: Response) {

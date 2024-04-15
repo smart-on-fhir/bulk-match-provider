@@ -1047,21 +1047,21 @@ describe("API", () => {
                 assert.equal(res2.headers.get("x-progress"), "0% complete")
                 assert.equal(res2.headers.get("retry-after"), "1")
 
-                await wait(config.jobThrottle + 10 - config.throttle)
+                await wait(config.jobThrottle + 110 - config.throttle)
 
                 const res3 = await fetch(client.statusLocation)
                 assert.equal(res3.status, 202)
                 assert.equal(res3.headers.get("x-progress"), "33% complete")
                 assert.equal(res3.headers.get("retry-after"), "1")
 
-                await wait(config.jobThrottle + 10 - config.throttle)
+                await wait(config.jobThrottle + 110 - config.throttle)
 
                 const res4 = await fetch(client.statusLocation)
                 assert.equal(res4.status, 202)
                 assert.equal(res4.headers.get("x-progress"), "66% complete")
                 assert.equal(res4.headers.get("retry-after"), "1")
 
-                await wait(config.jobThrottle + 10 - config.throttle)
+                await wait(config.jobThrottle + 110 - config.throttle)
 
                 const res5 = await fetch(client.statusLocation)
                 assert.equal(res5.status, 200)

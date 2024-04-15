@@ -7,6 +7,15 @@ import "../init-tests"
 
 describe("Job", () => {
 
+    it ("singleton stuff", async () => {
+        const job1 = await Job.create("base-url")
+        const job2 = await Job.byId(job1.id)
+        const job3 = await Job.byId(job1.id)
+        assert.equal(job1, job2, "same instances")
+        assert.equal(job2, job3, "same instances")
+        assert.equal(job1, job3, "same instances")
+    })
+
     it.skip ("byId", async () => {
         
         const job = await Job.create("base-url")

@@ -111,7 +111,7 @@ export default class Job
             })
         }
 
-        return await job.save()
+        return await job.save("initial save")
     }
 
     public get percentage() {
@@ -124,7 +124,7 @@ export default class Job
 
     public async destroy() {
         this.abort()
-        const release = await lock(this.path)
+        const release = await Job.lock(this.id)
         await rm(this.path, { recursive: true, maxRetries: 10, force: true })
         await release()
         delete Job.instances[this.id]
@@ -139,7 +139,7 @@ export default class Job
         if (n < 1) {
             this.updateManifest({ output: [] })
             this._percentage = 100
-            return await this.save()
+            return await this.save("Save on no match")
         }
 
         const results = resources
@@ -149,7 +149,8 @@ export default class Job
         let i = 0
 
         while (i < n) {
-            const result = results[i++]
+            const release = await Job.lock(this.id)
+            const result = results[i]
             const bundle: fhir4.Bundle = {
                 resourceType: "Bundle",
                 type : "searchset",
@@ -197,11 +198,13 @@ export default class Job
                 ]
             })
             this._percentage = Math.round(i / n * 100)
-            await this.save()
+            await this.save("save " + i, true)
+            i++
+            await release()
             await wait(config.jobThrottle, { signal: this.abortController.signal })
         }
         this._percentage = 100
-        await this.save()
+        await this.save("completed fakeRun")
     }
 
     async run(params: app.MatchOperationParams, options: app.MatchOperationOptions = {}) {
@@ -224,14 +227,14 @@ export default class Job
                     await this.matchOne(inputPatient)
                 }
                 this._percentage = Math.floor(++i / inputPatients.length * 100)
-                await this.save()
+                await this.save("completed match " + i)
             }
 
             this.completedAt = Date.now()
         } catch (error) {
             this.error = (error as Error).message
         }
-        await this.save()
+        await this.save("completed run")
     }
 
     async matchOne(input: Partial<fhir4.Patient>) {
@@ -332,9 +335,13 @@ export default class Job
         }
     }
 
-    public async save() {
+    public async save(label = "", skipLock = false) {
+        // console.log("======== SAVE ========", label)
         if (!this.abortController.signal.aborted) {
-            const release = await lock(this.path)
+            let release
+            if (!skipLock) {
+                release = await lock(this.path)
+            }
             if (!existsSync(this.path)) {
                 await mkdir(this.path)
             }
@@ -346,7 +353,9 @@ export default class Job
                 json,
                 { flag: "w+", encoding: "utf8", signal: this.abortController.signal }
             );
-            await release()
+            if (release) {
+                await release()
+            }
         }
         return this;
     }
@@ -372,7 +381,7 @@ export default class Job
             throw new NotFound("Job not found")
         }
 
-        const release = await lock(Path.join(config.jobsDir, id))
+        const release = await Job.lock(id)
         
         try {
             var data = await readFile(path, { flag: "r+", encoding: "utf8" })
@@ -393,7 +402,6 @@ export default class Job
         
         try {
             Object.assign(job, json)
-            job._percentage = json._percentage
         } catch (e) {
             await release()
             throw new InternalServerError("Export job could not be loaded", { cause: e })
@@ -402,6 +410,10 @@ export default class Job
         await release()
         
         return job
+    }
+
+    static async lock(id: string) {
+        return await lock(Path.join(config.jobsDir, id))
     }
 }
 
