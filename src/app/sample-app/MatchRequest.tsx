@@ -199,6 +199,7 @@ export default function MatchRequest({ state, dispatch }: { state: State, dispat
                                 min={1}
                                 value={ count || "" }
                                 onChange={ e => dispatch(updateKickOff({ count: e.target.valueAsNumber })) }
+                                disabled={ !!onlySingleMatch }
                             />
                         </div>
                     </div>
