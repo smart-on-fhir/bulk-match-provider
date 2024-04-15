@@ -15,18 +15,18 @@ async function copy(txt: string) {
 
 export default function ClientRegistration() {
 
-    const [ jwksUrl   , setJwksUrl   ] = useState("")
-    const [ jwks      , setJwks      ] = useState("")
-    const [ jwksError , setJwksError ] = useState("")
-    const [ err       , setErr       ] = useState("")
-    const [ dur       , setDur       ] = useState(15)
-    const [ loading   , setLoading   ] = useState(false)
-    const [ error     , setError     ] = useState<Error | string | null>(null)
-    const [ assertion , setAssertion ] = useState("")
-    const [ keyType   , setKeyType   ] = useState<"url" | "inline" | "sample">("url")
-    const [ sampleAlg , setSampleAlg ] = useState<"ES384" | "RS384">("ES384")
-    const [ fakeMatch , setFakeMatch ] = useState(0)
-    const [ duplicates, setDuplicates] = useState(0)
+    const [ jwksUrl    , setJwksUrl    ] = useState("")
+    const [ jwks       , setJwks       ] = useState("")
+    const [ jwksError  , setJwksError  ] = useState("")
+    const [ err        , setErr        ] = useState("")
+    const [ dur        , setDur        ] = useState(15)
+    const [ loading    , setLoading    ] = useState(false)
+    const [ error      , setError      ] = useState<Error | string | null>(null)
+    const [ assertion  , setAssertion  ] = useState("")
+    const [ keyType    , setKeyType    ] = useState<"url" | "inline" | "sample">("url")
+    const [ sampleAlg  , setSampleAlg  ] = useState<"ES384" | "RS384">("ES384")
+    const [ fakeMatches, setFakeMatches] = useState(0)
+    const [ duplicates , setDuplicates ] = useState(0)
 
     const cannotSubmit = !!(
         loading ||
@@ -42,7 +42,7 @@ export default function ClientRegistration() {
         let body = new URLSearchParams({
             err,
             accessTokensExpireIn: dur + "",
-            fakeMatches: fakeMatch  + "",
+            fakeMatches: fakeMatches  + "",
             duplicates : duplicates + ""
         })
 
@@ -202,10 +202,10 @@ export default function ClientRegistration() {
             <div className="my-4 row">
                 <div className="col">
                     <div className="d-flex justify-content-between">
-                        <label htmlFor="fakeMatch">Fake Matches</label>
-                        <span>{fakeMatch}%</span>
+                        <label htmlFor="fakeMatches">Fake Matches</label>
+                        <span>{fakeMatches}%</span>
                     </div>
-                    <input type="range" id="fakeMatch" className="form-range" value={fakeMatch} onChange={e => setFakeMatch(e.target.valueAsNumber)} min={0} max={100} step={10} />
+                    <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => setFakeMatches(e.target.valueAsNumber)} min={0} max={100} step={10} />
                 </div>
                 <div className="col">
                     <div className="d-flex justify-content-between">

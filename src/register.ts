@@ -32,7 +32,7 @@ export function register(req: Request, res: Response) {
         jwks                : jwksJSON,
         jwks_url            : jwks_url || undefined,
         accessTokensExpireIn: uInt(req.body.accessTokensExpireIn, 0) || undefined,
-        fakeMatches         : uInt(req.body.fakeMatch, 0),
+        fakeMatches         : uInt(req.body.fakeMatches, 0),
         duplicates          : uInt(req.body.duplicates, 0),
         err                 : req.body.err
     };
