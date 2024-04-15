@@ -51,4 +51,7 @@ export default {
     retryAfter: 2000,
 
     throttle: uInt(env.THROTTLE, 0),
+
+    // Limit the maximum number of records to return per resource
+    maxMatches: Infinity
 }
