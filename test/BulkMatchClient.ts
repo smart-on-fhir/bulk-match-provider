@@ -69,7 +69,7 @@ export default class BulkMatchClient
         return jwt.sign(claims, config.jwtSecret)
     }
 
-    async requestAccessToken(token: string, scope = "system/Patient.read") {
+    async requestAccessToken(token: string, scope = "system/Patient.rs") {
         return fetch(`${this.options.baseUrl}/auth/token`, {
             method: "POST",
             headers: {

@@ -234,5 +234,5 @@ async function fetchJwksUrl(input: string | URL | globalThis.Request, options?: 
 
 function negotiateScopes(list: string) {
     const scopes = list.trim().split(/\s+/)
-    return scopes.filter(s => s === "system/Patient.read") // FIXME: What scopes should we support?
+    return scopes.filter(s => s === "system/Patient.rs")
 }

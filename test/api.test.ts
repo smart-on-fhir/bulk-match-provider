@@ -121,7 +121,7 @@ describe("API", () => {
         }
     })
 
-    function requestAccessToken(token: string, scope = "system/Patient.read") {
+    function requestAccessToken(token: string, scope = "system/Patient.rs") {
         return fetch(`${baseUrl}/auth/token`, {
             method: "POST",
             headers: {
