@@ -1,6 +1,7 @@
 
 import moment      from "moment"
 import { toArray } from "./lib"
+import config      from "./config"
 
 type MatchFunction = (input: Partial<fhir4.Patient>, patient: fhir4.Patient) => number
 
@@ -36,25 +37,27 @@ export function getCertainty(score: number)
 /**
  * Matches ONE patient fragment against ALL the patients we have
  */
-export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[], baseUrl: string)
+export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[], baseUrl: string, limit = config.maxMatches)
 {
     const out: fhir4.BundleEntry[] = []
     return dataSet.reduce((prev, resource) => {
-        const score = match(input, resource)
-        const code  = getCertainty(score)
-        if (code !== "certainly-not") {
-            prev.push({
-                fullUrl: `${baseUrl}/fhir/${resource.resourceType}/${resource.id}`,
-                resource,
-                search: {
-                    extension: [{
-                        url: "http://hl7.org/fhir/StructureDefinition/match-grade",
-                        valueCode: code
-                    }],
-                    mode: "match",
-                    score
-                }
-            })
+        if (prev.length < limit) {
+            const score = match(input, resource)
+            const code  = getCertainty(score)
+            if (code !== "certainly-not") {
+                prev.push({
+                    fullUrl: `${baseUrl}/fhir/${resource.resourceType}/${resource.id}`,
+                    resource,
+                    search: {
+                        extension: [{
+                            url: "http://hl7.org/fhir/StructureDefinition/match-grade",
+                            valueCode: code
+                        }],
+                        mode: "match",
+                        score
+                    }
+                })
+            }
         }
         return prev
     }, out)

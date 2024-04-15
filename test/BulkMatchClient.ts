@@ -1,4 +1,6 @@
+import { randomBytes }   from "crypto"
 import jwt               from "jsonwebtoken"
+import jwkToPem          from "jwk-to-pem"
 import { MatchManifest } from ".."
 import { wait }          from "../src/lib"
 import config            from "../src/config"
@@ -14,7 +16,9 @@ interface BulkMatchRegistrationOptions {
 interface BulkMatchClientOptions {
     baseUrl     : string
     tokenUrl   ?: string
+    clientId   ?: string
     accessToken?: string
+    privateKey ?: any
     registrationOptions?: BulkMatchRegistrationOptions
 }
 
@@ -28,9 +32,16 @@ export default class BulkMatchClient
 
     private _manifest: MatchManifest | null = null;
 
+    private _clientId: string = "";
+
+    private _registrationToken: string = "";
+
     constructor(options: BulkMatchClientOptions)
     {
         this.options = options
+        if (options.registrationOptions && options.privateKey) {
+            this.register()
+        }
     }
 
     get statusLocation() {
@@ -54,11 +65,49 @@ export default class BulkMatchClient
         return this._manifest
     }
 
+    private register() {
+        const { privateKey, baseUrl, registrationOptions } = this.options
+        this._clientId = jwt.sign(registrationOptions!, config.jwtSecret)
+        const assertion = {
+            iss: this._clientId,
+            sub: this._clientId,
+            aud: `${baseUrl}/auth/token`,
+            exp: Math.round(Date.now() / 1000) + 300,
+            jti: randomBytes(10).toString("hex")
+        };
+        const privateKeyPEM = jwkToPem(privateKey as jwkToPem.JWK, { private: true })
+        this._registrationToken = jwt.sign(assertion, privateKeyPEM, {
+            algorithm: privateKey.alg as jwt.Algorithm,
+            keyid    : privateKey.kid
+        });
+    }
+
+    public async getAccessToken() {
+        if (!this.options.accessToken && this._registrationToken) {
+            const res = await fetch(`${this.options.baseUrl}/auth/token`, {
+                method: "POST",
+                headers: {
+                    "content-type": "application/x-www-form-urlencoded"
+                },
+                body: new URLSearchParams({
+                    grant_type           : "client_credentials",
+                    client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    scope                : "system/Patient.rs",
+                    client_assertion     : this._registrationToken,
+                })
+            })
+            const json = await res.json()
+            this.options.accessToken = json.access_token
+        }
+        return this.options.accessToken
+    }
+
     private async request(url: string | URL, options: RequestInit = {}) {
-        if (this.options.accessToken) {
+        const accessToken = await this.getAccessToken()
+        if (accessToken) {
             Object.assign(options, { headers: {
                 ...options.headers,
-                authorization: `Bearer ${this.options.accessToken}`
+                authorization: `Bearer ${accessToken}`
             }})
         }
         return fetch(url, options)

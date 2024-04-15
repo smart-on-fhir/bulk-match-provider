@@ -133,8 +133,12 @@ export default class Job
 
     async fakeRun(params: app.MatchOperationParams)
     {
-        const resources = params.resource
-        const n = Math.floor(resources.length / 100 * this.options.percentFakeMatches)
+        const { count, resource } = params
+        const resources = resource
+        let n = Math.floor(resources.length / 100 * this.options.percentFakeMatches)
+        if (count) {
+            n = Math.min(n, count)
+        }
 
         if (n < 1) {
             this.updateManifest({ output: [] })
@@ -208,23 +212,25 @@ export default class Job
     }
 
     async run(params: app.MatchOperationParams, options: app.MatchOperationOptions = {}) {
+        const { onlyCertainMatches, resource } = params
+        const count = params.count || Infinity
         if (this.options.percentFakeMatches) {
             return this.fakeRun(params)
         }
         try {
-            const inputPatients = params.resource.map(r => r.resource as fhir4.Patient)
+            const inputPatients = resource.map(r => r.resource as fhir4.Patient)
         
             let i = 0
             for (const inputPatient of inputPatients) {
                 if (options.matchServer) {
                     await this.matchOneViaProxy({
                         patient: inputPatient,
-                        onlyCertainMatches: params.onlyCertainMatches,
-                        count: params.count
+                        onlyCertainMatches,
+                        count
                     })
                 } else {
                     await wait(config.jobThrottle, { signal: this.abortController.signal })
-                    await this.matchOne(inputPatient)
+                    await this.matchOne(inputPatient, count)
                 }
                 this._percentage = Math.floor(++i / inputPatients.length * 100)
                 await this.save("completed match " + i)
@@ -237,8 +243,8 @@ export default class Job
         await this.save("completed run")
     }
 
-    async matchOne(input: Partial<fhir4.Patient>) {
-        const result = matchAll(input, patients, this.baseUrl)
+    async matchOne(input: Partial<fhir4.Patient>, count: number) {
+        const result = matchAll(input, patients, this.baseUrl, count)
         const bundle: fhir4.Bundle = {
             resourceType: "Bundle",
             type: "searchset",

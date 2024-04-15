@@ -246,7 +246,7 @@ describe("API", () => {
                         jwks                : '{ "my-jwks": true }',
                         jwks_url            : "my-jwks_url",
                         accessTokensExpireIn: "22",
-                        fakeMatch           : "33",
+                        fakeMatches         : "33",
                         duplicates          : "44",
                         err                 : "my-err"
                     })
@@ -1174,6 +1174,73 @@ describe("API", () => {
             const bundle = await fileResponse.json()
             assert.ok(bundle.entry.length > 0)
         })
+    })
+
+    it ("Can limit results using the count parameter", async () => {
+        const client = new BulkMatchClient({ baseUrl })
+        await client.kickOff({
+            resource: [
+                {
+                    "resourceType": "Patient",
+                    "id": "123",
+                    "birthDate": "2020-07-17",
+                    "name":[{"family":"Frami","given":["Valentine","Ahmed"]}]
+                }
+            ],
+            count: 1
+        })
+        await client.waitForCompletion()
+
+        const manifest = client.manifest
+
+        // console.log(manifest)
+
+        assert.equal(manifest.output.length, 1)
+        assert.equal(manifest.output[0].type, "Bundle")
+        assert.equal(manifest.output[0].count, 1)
+    })
+
+    it ("Can limit results using the count parameter while using fake matches", async () => {
+        // const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ], fakeMatches: 60 }}, config.jwtSecret)
+        // const assertion = generateRegistrationToken({ clientId })
+        // const res       = await requestAccessToken(assertion)
+        const client    = new BulkMatchClient({
+            baseUrl,
+            privateKey: PRIVATE_KEY,
+            registrationOptions: {
+                jwks: { keys: [ PUBLIC_KEY ] },
+                fakeMatches: 67
+            }
+        })
+        await client.kickOff({
+            resource: [
+                {
+                    "resourceType": "Patient",
+                    "id": "1",
+                    "name":[{"family":"A","given":["B","C"]}]
+                },
+                {
+                    "resourceType": "Patient",
+                    "id": "2",
+                    "name":[{"family":"B","given":["C","D"]}]
+                },
+                {
+                    "resourceType": "Patient",
+                    "id": "3",
+                    "name":[{"family":"C","given":["D","E"]}]
+                }
+            ],
+            // count: 2,
+        })
+        await client.waitForCompletion()
+
+        const manifest = client.manifest
+
+        // console.log(manifest)
+
+        assert.equal(manifest.output.length, 2)
+        // assert.equal(manifest.output[0].type, "Bundle")
+        // assert.equal(manifest.output[0].count, 2)
     })
 
     describe("List all jobs", () => {
