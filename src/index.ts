@@ -10,7 +10,6 @@ import { startChecking }                            from "./JobManager"
 import * as Gateway                                 from "./Gateway"
 import { router as FHIRRouter }                     from "./fhir" 
 import { smartConfig }                              from "./WellKnown"
-import { keyGenerator }                             from "./keyGenerator"
 import { register }                                 from "./register"
 import { tokenHandler }                             from "./token"
 import { OAuthError }                               from "./OAuthError"
@@ -36,7 +35,6 @@ if (config.throttle) {
 // .well-known/smart-configuration
 app.get("/.well-known/smart-configuration", smartConfig)
 
-app.get("/generate-jwk", keyGenerator)
 
 app.post("/auth/register", urlencoded({ extended: false }), register)
 app.post("/auth/token", urlencoded({ extended: false }), tokenHandler)
