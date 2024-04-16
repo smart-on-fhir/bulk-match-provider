@@ -37,10 +37,21 @@ export function getCertainty(score: number)
 /**
  * Matches ONE patient fragment against ALL the patients we have
  */
-export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[], baseUrl: string, limit = config.maxMatches)
+export function matchAll(input: Partial<fhir4.Patient>, {
+    dataSet,
+    baseUrl,
+    limit = config.maxMatches,
+    onlySingleMatch = false
+}: {
+    dataSet: fhir4.Patient[]
+    baseUrl: string
+    limit ?: number
+    onlySingleMatch?: boolean
+})
 {
     const out: fhir4.BundleEntry[] = []
-    return dataSet.reduce((prev, resource) => {
+
+    const matches = dataSet.reduce((prev, resource) => {
         if (prev.length < limit) {
             const score = match(input, resource)
             const code  = getCertainty(score)
@@ -61,6 +72,28 @@ export function matchAll(input: Partial<fhir4.Patient>, dataSet: fhir4.Patient[]
         }
         return prev
     }, out)
+
+    // It is always useful to sort results by match score
+    matches.sort((a, b) => b.search!.score! - a.search!.score!)
+
+    if (onlySingleMatch) {
+
+        // After sorting, check if we have more than one match at the top having
+        // the same score. If we have multiple matches having the same score
+        // (and they have less than 100% confidence), the return and empty
+        // matches array because we simply cannot justify picking one over the
+        // other!
+        if (matches.length > 1 &&
+            matches[0].search!.score! < 1 &&
+            matches[0].search!.score === matches[1].search!.score
+        ) {
+            return []
+        }
+
+        return [matches[0]]
+    }
+    
+    return matches
 }
 
 export function match(input: Partial<fhir4.Patient>, patient: fhir4.Patient): number {

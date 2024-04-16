@@ -11,6 +11,7 @@ import patients             from "../src/patients"
 import MockServer           from "./MockServer"
 import app                  from ".."
 import BulkMatchClient      from "./BulkMatchClient"
+import { Bundle }           from "fhir/r4"
 import "./init-tests"
 
 const PUBLIC_KEY = {
@@ -972,6 +973,121 @@ describe("API", () => {
             // assert.equal(json.statusCode, 200)
             // assert.equal(json.message, "If used, the _outputFormat parameter must be one of 'application/fhir+ndjson', 'application/ndjson' or 'ndjson'")
         })
+
+        it ("onlySingleMatch - when possible", async () => {
+            
+            const client = new BulkMatchClient({ baseUrl })
+            
+            // We have 2 records for patients with such name and DOB, but with
+            // different phones. Normally we should get back 2 matches, but if
+            // onlySingleMatch if true we should only get the one with the
+            // matching phone
+            await client.kickOff({
+                resource: [
+                    {
+                        resourceType:"Patient",
+                        id:"1",
+                        name:[
+                            {
+                                family:"Frami",
+                                given:["Valentine","Ahmed"]
+                            }
+                        ],
+                        telecom:[
+                            {
+                                system:"phone",
+                                value:"555-790-7955",
+                                use:"home"
+                            }
+                        ],
+                        birthDate:"2020-07-17"
+                    }
+                ],
+                onlySingleMatch: true
+            })
+
+            await client.waitForCompletion()
+            assert.equal(client.manifest.output.length, 1)
+            assert.equal(client.manifest.output[0].count, 1)
+            const bundle = await client.download(0)
+            assert.equal(bundle.entry[0].resource.telecom[0].value, "555-790-7955")
+        })
+
+        it ("onlySingleMatch - when not possible", async () => {
+            const client = new BulkMatchClient({ baseUrl })
+            
+            // We have 2 records for patients with such name and DOB, but with
+            // different phones. Normally we should get back 2 matches, but if
+            // onlySingleMatch if true we should only get none because the
+            // server cannot decide which match is better. This test is very
+            // similar to the one above but we omit the telecom sections here
+            // to make sure that the 2 matches will end up having the same
+            // score (and therefore none can be chosen).
+            await client.kickOff({
+                resource: [
+                    {
+                        resourceType:"Patient",
+                        id:"1",
+                        name:[
+                            {
+                                family:"Frami",
+                                given:["Valentine","Ahmed"]
+                            }
+                        ],
+                        birthDate:"2020-07-17"
+                    }
+                ],
+                onlySingleMatch: true
+            })
+
+            await client.waitForCompletion()
+            assert.equal(client.manifest.output.length, 1)
+            assert.equal(client.manifest.output[0].count, 0)
+        })
+
+        it ("onlySingleMatch + fakeMatches = pick the first input patient", async () => {
+            const client    = new BulkMatchClient({
+                baseUrl,
+                privateKey: PRIVATE_KEY,
+                registrationOptions: {
+                    jwks: { keys: [ PUBLIC_KEY ] },
+                    fakeMatches: 67
+                }
+            })
+            
+            await client.kickOff({
+                resource: [
+                    {
+                        "resourceType": "Patient",
+                        "id": "1",
+                        "name":[{"family":"A","given":["B","C"]}]
+                    },
+                    {
+                        "resourceType": "Patient",
+                        "id": "2",
+                        "name":[{"family":"B","given":["C","D"]}]
+                    },
+                    {
+                        "resourceType": "Patient",
+                        "id": "3",
+                        "name":[{"family":"C","given":["D","E"]}]
+                    }
+                ],
+                onlySingleMatch: true
+            })
+
+            
+            await client.waitForCompletion()
+            // console.log(client.manifest)
+            assert.equal(client.manifest.output.length, 1)
+            assert.equal(client.manifest.output[0].count, 1)
+
+            const bundle: Bundle = await client.download(0)
+            // console.log(JSON.stringify(bundle, null, 4))
+            assert.equal(bundle.total, 1)
+            assert.equal(bundle.entry?.length, 1)
+            assert.equal(bundle.entry![0].resource?.id, "1")
+        })
     })
 
     describe("Check Status", () => {
@@ -1249,6 +1365,14 @@ describe("API", () => {
             const json = await res.json()
             assert.ok(Array.isArray(json))
         })
+    })
+
+    it (".well-known/smart-configuration", async () => {
+        const res = await fetch(`${baseUrl}/.well-known/smart-configuration`)
+        const json = await res.json()
+        assert.equal(json.token_endpoint        , `${baseUrl}/auth/token`    )
+        assert.equal(json.authorization_endpoint, `${baseUrl}/auth/authorize`)
+        assert.equal(json.registration_endpoint , `${baseUrl}/auth/register` )
     })
 
     describe("Get one job", () => {

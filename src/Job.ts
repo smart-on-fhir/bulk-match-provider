@@ -133,32 +133,13 @@ export default class Job
 
     async fakeRun(params: app.MatchOperationParams)
     {
-        const { count, resource } = params
-        const resources = resource
-        let n = Math.floor(resources.length / 100 * this.options.percentFakeMatches)
-        if (count) {
-            n = Math.min(n, count)
-        }
+        const { count, resource, onlySingleMatch } = params
 
-        if (n < 1) {
-            this.updateManifest({ output: [] })
-            this._percentage = 100
-            return await this.save("Save on no match")
-        }
-
-        const results = resources
-            .map(r => r.resource as Patient)
-            .sort((a, b) => a!.id!.localeCompare(b!.id!))
-            .slice(0, n)
-        let i = 0
-
-        while (i < n) {
-            const release = await Job.lock(this.id)
-            const result = results[i]
+        const generateItem = async (result: Patient, total: number) => {
             const bundle: fhir4.Bundle = {
                 resourceType: "Bundle",
                 type : "searchset",
-                total: results.length,
+                total,
                 meta: {
                     extension: [{
                         url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
@@ -170,7 +151,7 @@ export default class Job
                 entry: [
                     {
                         fullUrl: `Patient/${result.id}`,
-                        resource: result as FhirResource,
+                        resource: result,
                         search: {
                             extension: [{
                                 url: "http://hl7.org/fhir/StructureDefinition/match-grade",
@@ -182,15 +163,17 @@ export default class Job
                     }
                 ]
             };
-            
+
             if (!this.abortController.signal.aborted && !existsSync(this.path + "/files")) {
                 await mkdir(this.path + "/files")
             }
+
             await writeFile(
                 Path.join(this.path, "/files/" + result.id + `-patient-matches.ndjson`),
                 JSON.stringify(bundle) + "\n",
                 { flag: "w+", encoding: "utf8", signal: this.abortController.signal }
             );
+
             this.updateManifest({
                 output: [
                     ...this.manifest.output,
@@ -201,18 +184,50 @@ export default class Job
                     }
                 ]
             })
-            this._percentage = Math.round(i / n * 100)
-            await this.save("save " + i, true)
-            i++
+        }
+
+        const resources = resource
+        let n = Math.floor(resources.length / 100 * this.options.percentFakeMatches)
+        if (count) {
+            n = Math.min(n, count)
+        }
+
+        // If percentFakeMatches produced 0 matches
+        if (n < 1) {
+            this.updateManifest({ output: [] })
+            this._percentage = 100
+            return await this.save("Save on no match")
+        }
+
+        const results = resources
+            .map(r => r.resource as Patient)
+            .sort((a, b) => a!.id!.localeCompare(b!.id!))
+            .slice(0, n)
+
+        if (onlySingleMatch) {
+            const release = await Job.lock(this.id)
+            await generateItem(results[0] as Patient, 1)
             await release()
-            await wait(config.jobThrottle, { signal: this.abortController.signal })
+        } else {
+
+            let i = 0
+            while (i < n) {
+                const release = await Job.lock(this.id)
+                const result = results[i]
+                await generateItem(result as Patient, results.length)
+                this._percentage = Math.round(i / n * 100)
+                await this.save("save " + i, true)
+                i++
+                await release()
+                await wait(config.jobThrottle, { signal: this.abortController.signal })
+            }
         }
         this._percentage = 100
         await this.save("completed fakeRun")
     }
 
     async run(params: app.MatchOperationParams, options: app.MatchOperationOptions = {}) {
-        const { onlyCertainMatches, resource } = params
+        const { onlyCertainMatches, onlySingleMatch, resource } = params
         const count = params.count || Infinity
         if (this.options.percentFakeMatches) {
             return this.fakeRun(params)
@@ -230,7 +245,7 @@ export default class Job
                     })
                 } else {
                     await wait(config.jobThrottle, { signal: this.abortController.signal })
-                    await this.matchOne(inputPatient, count)
+                    await this.matchOne(inputPatient, count, onlySingleMatch)
                 }
                 this._percentage = Math.floor(++i / inputPatients.length * 100)
                 await this.save("completed match " + i)
@@ -243,8 +258,13 @@ export default class Job
         await this.save("completed run")
     }
 
-    async matchOne(input: Partial<fhir4.Patient>, count: number) {
-        const result = matchAll(input, patients, this.baseUrl, count)
+    async matchOne(input: Partial<fhir4.Patient>, count: number, onlySingleMatch = false) {
+        const result = matchAll(input, {
+            dataSet: patients,
+            baseUrl: this.baseUrl,
+            limit  : count,
+            onlySingleMatch
+        })
         const bundle: fhir4.Bundle = {
             resourceType: "Bundle",
             type: "searchset",
