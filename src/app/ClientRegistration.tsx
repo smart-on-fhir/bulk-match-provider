@@ -171,21 +171,19 @@ export default function ClientRegistration() {
                     <label htmlFor="err" className="form-label">Simulated Error</label>
                     <select className="form-select" value={err} onChange={e => setErr(e.target.value)}>
                         <option value="">None</option>
-                        <optgroup label="Authentication">
-                            <option value="expired_registration_token">Expired registration token</option>
-                            <option value="invalid_scope">Invalid scope</option>
+                        <optgroup label="During Authentication">
+                            <option value="expired_registration_token">Expired client</option>
+                            <option value="reg_invalid_scope">Invalid scope</option>
                             <option value="invalid_client">Invalid client</option>
+                        </optgroup>
+                        <optgroup label="During Access">
+                            <option value="invalid_scope">Invalid scope</option>
                             <option value="invalid_access_token">Invalid access token</option>
                             <option value="expired_access_token">Expired access token</option>
-                        </optgroup>
-                        <optgroup label="Match Kick-off Request">
-                            <option value="too_many_patient_params">Too many patient parameters</option>
-                        </optgroup>
-                        <optgroup label="Match Status Requests">
+                            <option value="unauthorized_client">Unauthorized client</option>
+                            <option value="too_many_patient_params">Too many patient parameters at Kick-off request</option>
                             <option value="too_frequent_status_requests">Too frequent status requests</option>
-                        </optgroup>
-                        <optgroup label="Match Download Requests">
-                            <option value="file_not_found">File not found</option>
+                            <option value="file_not_found">File not found during download</option>
                         </optgroup>
                     </select>
                 </div>

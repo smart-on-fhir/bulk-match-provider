@@ -614,16 +614,16 @@ describe("API", () => {
                 const clientId  = jwt.sign({ err: "expired_registration_token" }, config.jwtSecret)
                 const assertion = generateRegistrationToken({ clientId })
                 const res       = await requestAccessToken(assertion)
-                assert.equal(res.status, 400)
+                assert.equal(res.status, 401)
                 const json = await res.json()
                 expectOAuthError(json, {
-                    error: 'invalid_request',
+                    error: 'invalid_client',
                     error_description: "Registration token expired (simulated error)"
                 })
             })
 
-            it ("Can simulate invalid_scope error", async () => {
-                const clientId  = jwt.sign({ err: "invalid_scope" }, config.jwtSecret)
+            it ("Can simulate reg_invalid_scope error", async () => {
+                const clientId  = jwt.sign({ err: "reg_invalid_scope" }, config.jwtSecret)
                 const assertion = generateRegistrationToken({ clientId })
                 const res       = await requestAccessToken(assertion)
                 assert.equal(res.status, 403)
@@ -686,7 +686,81 @@ describe("API", () => {
                     error_description: 'No access could be granted for scopes "x y z".'
                 })
             })
+        })
+
+        describe("checkAuth", () => {
+
+            async function tryAccess(client: object) {
+                const clientId = jwt.sign(client, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res1 = await requestAccessToken(assertion, "system/Patient.rs")
+                const json = await res1.json()
+                return await fetch(`${baseUrl}/jobs/whatever/status`, {
+                    headers: { authorization: `Bearer ${ json.access_token }` }
+                })
+            }
+
+            it ("Simulated expired_access_token error", async () => {
+                const res = await tryAccess({ jwks: { keys: [ PUBLIC_KEY ] }, err: "expired_access_token" })
+                assert.equal(res.status, 401)
+                const json = await res.json()
+                expectOAuthError(json, { error: "invalid_client", error_description: "Access token expired (simulated error)" })
+            })
+
+            it ("Simulated invalid_access_token error", async () => {
+                const res = await tryAccess({ jwks: { keys: [ PUBLIC_KEY ] }, err: "invalid_access_token" })
+                assert.equal(res.status, 401)
+                const json = await res.json()
+                expectOAuthError(json, { error: "invalid_client", error_description: "Invalid access token (simulated error)" })
+            })
             
+            it ("Simulated invalid_scope error", async () => {
+                const res = await tryAccess({ jwks: { keys: [ PUBLIC_KEY ] }, err: "invalid_scope" })
+                assert.equal(res.status, 403)
+                const json = await res.json()
+                expectOAuthError(json, { error: "invalid_scope", error_description: "Invalid scope (simulated error)" })
+            })
+
+            it ("Simulated unauthorized_client error", async () => {
+                const res = await tryAccess({ jwks: { keys: [ PUBLIC_KEY ] }, err: "unauthorized_client" })
+                assert.equal(res.status, 403)
+                const json = await res.json()
+                expectOAuthError(json, { error: "unauthorized_client", error_description: "Unauthorized client (simulated error)" })
+            })
+
+            it ("Simulated expired_registration_token error", async () => {
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }, err: "expired_registration_token" }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res = await requestAccessToken(assertion, "system/Patient.rs")
+                const json = await res.json()
+                assert.equal(res.status, 401)
+                expectOAuthError(json, { error: "invalid_client", error_description: "Registration token expired (simulated error)" })
+            })
+
+            it ("Simulated invalid_client error", async () => {
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }, err: "invalid_client" }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res = await requestAccessToken(assertion, "system/Patient.rs")
+                const json = await res.json()
+                assert.equal(res.status, 401)
+                expectOAuthError(json, { error: "invalid_client", error_description: "Invalid client (simulated error)" })
+            })
+
+            it ("Simulated reg_invalid_scope error", async () => {
+                const clientId = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }, err: "reg_invalid_scope" }, config.jwtSecret)
+                const assertion = generateRegistrationToken({ clientId })
+                const res = await requestAccessToken(assertion, "system/Patient.rs")
+                assert.equal(res.status, 403)
+                const json = await res.json()
+                expectOAuthError(json, { error: "invalid_scope", error_description: "Invalid scope (simulated error)" })
+            })
+
+            it ("Catches invalid token errors", async () => {
+                const res = await fetch(`${baseUrl}/jobs/whatever/status`, { headers: { authorization: `Bearer whatever` }})
+                assert.equal(res.status, 401)
+                const json = await res.json()
+                expectOperationOutcome(json, { severity: "error", code: 401, diagnostics: /^Invalid token\b/ })
+            })
         })
     })
     
@@ -1375,14 +1449,58 @@ describe("API", () => {
         assert.equal(json.registration_endpoint , `${baseUrl}/auth/register` )
     })
 
-    describe("Get one job", () => {
-        it ("Works", async () => {
-            const client    = new BulkMatchClient({ baseUrl })
-            await client.kickOff({ resource: [ { resourceType: "Patient", id: "#1" } ] })
-            const res2 = await fetch(`${baseUrl}/jobs/${client.jobId}`)
-            const json = await res2.json()
-            assert.equal(json.id, client.jobId)
-        })
+    it ("Can GET /config", async () => {
+        const res = await fetch(`${baseUrl}/config`)
+        const json = await res.json()
+        assert.ok("supportedAlgorithms" in json)
+        assert.ok("jobMaxLifetimeMinutes" in json)
+        assert.ok("completedJobLifetimeMinutes" in json)
+        assert.ok("resourceParameterLimit" in json)
+    })
+
+    it ("Can download patients", async () => {
+        const res = await fetch(`${baseUrl}/patients`)
+        assert.equal(res.headers.get("content-type"), "application/octet-stream")
+    })
+
+    it ("404 errors", async () => {
+        const res = await fetch(`${baseUrl}/missing-path`)
+        const json = await res.json()
+        assert.deepEqual(json, { name: 'NotFound', message: 'Not Found', statusCode: 404, http: true })
+    })
+
+    it ("Get the UI at /", async () => {
+        const res = await fetch(`${baseUrl}/`)
+        const txt = await res.text()
+        assert.ok(txt.startsWith("<!DOCTYPE html>"))
+    })
+
+    it ("Get the UI at /index.html", async () => {
+        const res = await fetch(`${baseUrl}/index.html`)
+        const txt = await res.text()
+        assert.ok(txt.startsWith("<!DOCTYPE html>"))
+    })
+
+    it ("Custom throttle", async () => {
+        const orig = config.throttle
+        config.throttle = orig + 100
+        try {
+            const start = Date.now()
+            await fetch(`${baseUrl}/config`)
+            const dur = Date.now() - start
+            assert.ok(dur >= config.throttle)
+            assert.ok(dur <= config.throttle + 50)
+        } finally {
+            config.throttle = orig
+        }
+    })
+
+    it ("Get one job", async () => {
+        const client    = new BulkMatchClient({ baseUrl })
+        await client.kickOff({ resource: [ { resourceType: "Patient", id: "#1" } ] })
+        const res2 = await fetch(`${baseUrl}/jobs/${client.jobId}`)
+        const json = await res2.json()
+        assert.equal(json.id, client.jobId)
     })
 
     describe("Abort jobs", () => {

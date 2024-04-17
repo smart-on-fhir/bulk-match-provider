@@ -1,15 +1,19 @@
-import jwt                                       from "jsonwebtoken" 
-import lockfile                                  from "proper-lockfile"
-import config                                    from "./config"
-import { Unauthorized }                          from "./HttpError"
-import { InvalidClientError, InvalidScopeError } from "./OAuthError"
-import app from ".."
+import jwt              from "jsonwebtoken" 
+import lockfile         from "proper-lockfile"
+import config           from "./config"
+import { Unauthorized } from "./HttpError"
+import {
+    InvalidClientError,
+    InvalidScopeError,
+    UnauthorizedClientError
+} from "./OAuthError"
 import type {
     NextFunction,
     Request,
     RequestHandler,
     Response
 } from "express"
+import app from ".."
 
 
 export function toArray(x: any): (typeof x)[] {
@@ -169,7 +173,10 @@ export function checkAuth(req: Request, res: Response, next: NextFunction)
                 }
             ) as app.AccessToken;
         } catch (e) {
-            console.error(e)
+            /* istanbul ignore next */
+            if (process.env.NODE_ENV !== "test") {
+                console.error(e)
+            }
             throw new Unauthorized("Invalid token: " + (e as Error).message);
         }
 
@@ -178,14 +185,12 @@ export function checkAuth(req: Request, res: Response, next: NextFunction)
 
         if (client.err === "expired_access_token") {
             throw new InvalidClientError("Access token expired (simulated error)")
-        } else if (client.err === "expired_registration_token") {
-            throw new InvalidClientError("Registration token expired (simulated error)");
         } else if (client.err === "invalid_access_token") {
             throw new InvalidClientError("Invalid access token (simulated error)");
-        } else if (client.err === "invalid_client") {
-            throw new InvalidClientError("Invalid client (simulated error)");
         } else if (client.err === "invalid_scope") {
             throw new InvalidScopeError("Invalid scope (simulated error)");
+        } else if (client.err === "unauthorized_client") {
+            throw new UnauthorizedClientError("Unauthorized client (simulated error)");
         }
     }
 

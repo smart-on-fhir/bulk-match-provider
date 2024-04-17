@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import { readdir } from "fs/promises"
 import config      from "./config"
 import Job         from "./Job"

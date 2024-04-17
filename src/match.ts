@@ -236,3 +236,30 @@ export function getIdentifier(input: Partial<fhir4.Patient>, code: string): stri
     return input.identifier?.find(x => x.type?.coding?.find(c => c.code === code))?.value
 }
 
+export function samePatients(p1: Patient, p2: Patient) {
+    
+    // Same instance
+    if (p1 === p2) {
+        return true
+    }
+    
+    // Same ID
+    if (p1.id && p1.id === p2.id) {
+        return true
+    }
+
+    // Same MRN
+    const mrn = getIdentifier(p1, "MR")
+    if (mrn && mrn === getIdentifier(p2, "MR")) {
+        return true
+    }
+
+    // Same SSN
+    const ssn = getIdentifier(p1, "SS")
+    if (ssn && ssn === getIdentifier(p2, "SS")) {
+        return true
+    }
+    
+    // Different patient
+    return false
+}

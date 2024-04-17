@@ -18,19 +18,18 @@ import {
     checkAuth,
     createOperationOutcome
 } from "./lib"
+import { AddressInfo } from "net"
 
 
 const app = express()
 
 app.use(cors({ origin: true, credentials: true }))
-// app.use(urlencoded({ extended: false, limit: "64kb" }));
 
 // Automatically parse incoming JSON payloads
 app.use(json());
 
-if (config.throttle) {
-    app.use((_rec, _res, next: NextFunction) => setTimeout(next, config.throttle));
-}
+// throttle if needed
+app.use((_rec, _res, next: NextFunction) => setTimeout(next, config.throttle));
 
 // .well-known/smart-configuration
 app.get("/.well-known/smart-configuration", smartConfig)
@@ -74,9 +73,6 @@ app.use(express.static(join(__dirname, "../static/")));
 // Static files for the web app
 app.use(express.static(join(__dirname, "../dist/")));
 
-// The web app
-app.get(["/", "/index.html"], (req, res) => res.sendFile("index.html", { root: join(__dirname, "../dist/") }));
-
 // Global error 404 handler
 app.use((req: Request, res: Response) => {
     res.status(404).json(new NotFound())
@@ -101,7 +97,6 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
     
     /* istanbul ignore next */
     if (process.env.NODE_ENV !== "test") console.error(error);
-    /* istanbul ignore next */
 
     res.status(error.statusCode).json(createOperationOutcome(error.message, {
         issueCode: error.statusCode
@@ -117,16 +112,14 @@ async function main(): Promise<{
 }> {
     return new Promise(resolve => {
         const server = app.listen(+config.port, config.host, () => {
-            let address = server.address() || ""
-            if (address && typeof address === "object") { // AddressInfo
-                address = `http://${address.address}:${address.port}`
-            }
+            let info = server.address() as AddressInfo
             
+            /* istanbul ignore next */
             if (process.env.NODE_ENV !== "test") {
                 startChecking() // periodically delete expired jobs
             }
 
-            resolve({ server, app, address })
+            resolve({ server, app, address: `http://${info.address}:${info.port}` })
         });
     })
 }

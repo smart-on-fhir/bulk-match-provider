@@ -248,7 +248,8 @@ declare namespace app {
               "expired_access_token" |
               "too_many_patient_params" |
               "too_frequent_status_requests" |
-              "file_not_found"
+              "file_not_found" |
+              "unauthorized_client"
 
         /**
          * Percent of fake matches

@@ -1,7 +1,17 @@
 import assert from "node:assert/strict"
-import { flatNames, match, matchAddress, matchDOB, matchEmail, matchGender, matchName, matchPhone } from "../../src/match"
 import patients from "../../src/patients"
 import "../init-tests"
+import {
+    flatNames,
+    match,
+    matchAddress,
+    matchDOB,
+    matchEmail,
+    matchGender,
+    matchName,
+    matchPhone,
+    samePatients
+} from "../../src/match"
 
 
 describe("flatNames", () => {
@@ -349,5 +359,100 @@ describe("matchAddress", () => {
             { address: [{ line: ["1021 Block Port Apt 39"], city: "Boston"  , state: "Massachusetts" }] },
             { address: [{ line: ["1021 Block Port Apt 39"], city: "Brockton", state: "Massachusetts" }] } as fhir4.Patient
         ), 0)
+    })
+})
+
+describe("samePatients", () => {
+    it ("same instances", async () => {
+        const a: any = {}
+        const b: any = a
+        const c: any = {}
+        assert.equal(samePatients(a, b), true)
+        assert.equal(samePatients(a, c), false)
+        assert.equal(samePatients(c, b), false)
+    })
+
+    it ("same id", async () => {
+        const a: any = { id: "1" }
+        const b: any = { id: "1" }
+        const c: any = { id: "2" }
+        assert.equal(samePatients(a, b), true)
+        assert.equal(samePatients(a, c), false)
+        assert.equal(samePatients(c, b), false)
+    })
+
+    it ("same MRN", async () => {
+        const a: any = { identifier: [{
+            "type":{
+                "coding":[{"system":"http://terminology.hl7.org/CodeSystem/v2-0203","code":"MR","display":"Medical Record Number"}],
+                "text":"Medical Record Number"
+            },
+            "system":"http://hospital.smarthealthit.org","value":"20a9e998-212f-dce2-1459-668b29d99236"
+        }] }
+        const b: any = { identifier: [{
+            "type":{
+                "coding":[{"system":"http://terminology.hl7.org/CodeSystem/v2-0203","code":"MR","display":"Medical Record Number"}],
+                "text":"Medical Record Number"
+            },
+            "system":"http://hospital.smarthealthit.org","value":"20a9e998-212f-dce2-1459-668b29d99236"
+        }] }
+        const c: any = { identifier: [{
+            "type":{
+                "coding":[{"system":"http://terminology.hl7.org/CodeSystem/v2-0203","code":"MR","display":"Medical Record Number"}],
+                "text":"Medical Record Number"
+            },
+            "system":"http://hospital.smarthealthit.org","value":"20a9e998-212f-dce2-1459-668b29d99237"
+        }] }
+        assert.equal(samePatients(a, b), true)
+        assert.equal(samePatients(a, c), false)
+        assert.equal(samePatients(c, b), false)
+    })
+
+    it ("same SSN", async () => {
+        const a: any = { identifier: [{
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "SS",
+                        "display": "Social Security Number"
+                    }
+                ],
+                "text": "Social Security Number"
+            },
+            "system": "http://hl7.org/fhir/sid/us-ssn",
+            "value": "999-96-2306"
+        }] }
+        const b: any = { identifier: [{
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "SS",
+                        "display": "Social Security Number"
+                    }
+                ],
+                "text": "Social Security Number"
+            },
+            "system": "http://hl7.org/fhir/sid/us-ssn",
+            "value": "999-96-2306"
+        }] }
+        const c: any = { identifier: [{
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "SS",
+                        "display": "Social Security Number"
+                    }
+                ],
+                "text": "Social Security Number"
+            },
+            "system": "http://hl7.org/fhir/sid/us-ssn",
+            "value": "999-96-2307"
+        }] }
+        assert.equal(samePatients(a, b), true)
+        assert.equal(samePatients(a, c), false)
+        assert.equal(samePatients(c, b), false)
     })
 })

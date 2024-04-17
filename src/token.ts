@@ -77,11 +77,11 @@ export const tokenHandler = asyncRouteWrap(async (req: Request, res: Response) =
 
     // simulate expired registration token error -------------------------------
     if (clientDetailsTokenPayload.err === "expired_registration_token") {
-        throw new InvalidRequestError("Registration token expired (simulated error)");
+        throw new InvalidClientError("Registration token expired (simulated error)");
     }
 
     // simulated invalid scope error -------------------------------------------
-    if (clientDetailsTokenPayload.err === "invalid_scope") {
+    if (clientDetailsTokenPayload.err === "reg_invalid_scope") {
         throw new InvalidScopeError("Invalid scope (simulated error)");
     }
 
