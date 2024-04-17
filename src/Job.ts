@@ -245,7 +245,7 @@ export default class Job
                     })
                 } else {
                     await wait(config.jobThrottle, { signal: this.abortController.signal })
-                    await this.matchOne(inputPatient, count, onlySingleMatch)
+                    await this.matchOne(inputPatient, count, onlySingleMatch, onlyCertainMatches)
                 }
                 this._percentage = Math.floor(++i / inputPatients.length * 100)
                 await this.save("completed match " + i)
@@ -258,12 +258,13 @@ export default class Job
         await this.save("completed run")
     }
 
-    async matchOne(input: Partial<fhir4.Patient>, count: number, onlySingleMatch = false) {
+    async matchOne(input: Partial<fhir4.Patient>, count: number, onlySingleMatch = false, onlyCertainMatches = false) {
         const result = matchAll(input, {
             dataSet: patients,
             baseUrl: this.baseUrl,
             limit  : count,
-            onlySingleMatch
+            onlySingleMatch,
+            onlyCertainMatches
         })
         const bundle: fhir4.Bundle = {
             resourceType: "Bundle",

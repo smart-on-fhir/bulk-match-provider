@@ -2,6 +2,7 @@
 import moment      from "moment"
 import { toArray } from "./lib"
 import config      from "./config"
+import { Patient } from "fhir/r4"
 
 type MatchFunction = (input: Partial<fhir4.Patient>, patient: fhir4.Patient) => number
 
@@ -41,17 +42,19 @@ export function matchAll(input: Partial<fhir4.Patient>, {
     dataSet,
     baseUrl,
     limit = config.maxMatches,
-    onlySingleMatch = false
+    onlySingleMatch = false,
+    onlyCertainMatches = false
 }: {
     dataSet: fhir4.Patient[]
     baseUrl: string
     limit ?: number
     onlySingleMatch?: boolean
+    onlyCertainMatches?: boolean
 })
 {
     const out: fhir4.BundleEntry[] = []
 
-    const matches = dataSet.reduce((prev, resource) => {
+    let matches = dataSet.reduce((prev, resource) => {
         if (prev.length < limit) {
             const score = match(input, resource)
             const code  = getCertainty(score)
@@ -75,6 +78,15 @@ export function matchAll(input: Partial<fhir4.Patient>, {
 
     // It is always useful to sort results by match score
     matches.sort((a, b) => b.search!.score! - a.search!.score!)
+
+    // onlyCertainMatches means we need to have 0 or 1 match, or multiple as
+    // long as they are pointing to the same patient
+    if (onlyCertainMatches && matches.length > 1) {
+        const first = matches[0].resource as Patient
+        matches = matches.filter(x => {
+            return samePatients(x.resource as Patient, first as Patient)
+        })
+    }
 
     if (onlySingleMatch) {
 

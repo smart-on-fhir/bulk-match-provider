@@ -1162,6 +1162,69 @@ describe("API", () => {
             assert.equal(bundle.entry?.length, 1)
             assert.equal(bundle.entry![0].resource?.id, "1")
         })
+
+        it ("onlyCertainMatches", async () => {
+            const client = new BulkMatchClient({ baseUrl })
+            
+            await client.kickOff({
+                resource: [
+                    {
+                        resourceType:"Patient",
+                        id:"1",
+                        name:[ { family:"Frami", given:["Valentine","Ahmed"] } ],
+                        birthDate:"2020-07-17"
+                    }
+                ],
+                onlyCertainMatches: true
+            })
+
+            await client.waitForCompletion()
+            assert.equal(client.manifest.output.length, 1)
+            assert.equal(client.manifest.output[0].count, 2)
+        })
+
+        it ("onlyCertainMatches + onlySingleMatch when possible", async () => {
+            const client = new BulkMatchClient({ baseUrl })
+            
+            await client.kickOff({
+                resource: [
+                    {
+                        resourceType:"Patient",
+                        id:"1",
+                        name:[ { family:"Frami", given:["Valentine","Ahmed"] } ],
+                        birthDate:"2020-07-17",
+                        telecom:[{ system:"phone", value:"555-790-7956" }]
+                    }
+                ],
+                onlySingleMatch: true,
+                onlyCertainMatches: true
+            })
+
+            await client.waitForCompletion()
+            assert.equal(client.manifest.output.length, 1)
+            assert.equal(client.manifest.output[0].count, 1)
+        })
+
+        it ("onlyCertainMatches + onlySingleMatch when not possible", async () => {
+            const client = new BulkMatchClient({ baseUrl })
+            
+            await client.kickOff({
+                resource: [
+                    {
+                        resourceType:"Patient",
+                        id:"1",
+                        name:[ { family:"Frami", given:["Valentine","Ahmed"] } ],
+                        birthDate:"2020-07-17"
+                    }
+                ],
+                onlySingleMatch: true,
+                onlyCertainMatches: true
+            })
+
+            await client.waitForCompletion()
+            assert.equal(client.manifest.output.length, 1)
+            assert.equal(client.manifest.output[0].count, 0)
+        })
     })
 
     describe("Check Status", () => {
