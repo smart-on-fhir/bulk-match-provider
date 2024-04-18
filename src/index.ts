@@ -81,6 +81,8 @@ app.use((req: Request, res: Response) => {
 // Global error handler
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
 
+    // console.error(error)
+
     if (error instanceof OAuthError) {
         if (error.type === "invalid_client" && !res.headersSent && req.headers.authorization) {
             res.setHeader("WWW-Authenticate", "Bearer")

@@ -77,7 +77,7 @@ export async function checkStatus(req: app.Request, res: Response) {
 
     // Our server is pretty fast. It is safe to assume that in 2 seconds the job
     // will either be complete, or will at least have made some progress
-    const RETRY_AFTER = config.retryAfter// 2_000
+    const RETRY_AFTER = config.retryAfter
 
     // If this is not the first status check
     if (job.notBefore) {
@@ -91,8 +91,8 @@ export async function checkStatus(req: app.Request, res: Response) {
             // If excessively frequent status queries persist, the server MAY
             // return a 429 Too Many Requests status code and terminate the session.
             if (retryAfter > (RETRY_AFTER / 1000) * 10) {
-                await job.destroy()
                 await release()
+                await job.destroy()
                 return res.status(429).json(createOperationOutcome(
                     "Too many requests made ignoring the retry-after header hint. Session terminated!",
                     { severity: "fatal" }

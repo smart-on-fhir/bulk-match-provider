@@ -1,9 +1,10 @@
-import { randomBytes }   from "crypto"
-import jwt               from "jsonwebtoken"
-import jwkToPem          from "jwk-to-pem"
-import { MatchManifest } from ".."
-import { wait }          from "../src/lib"
-import config            from "../src/config"
+import { randomBytes }      from "crypto"
+import jwt                  from "jsonwebtoken"
+import jwkToPem             from "jwk-to-pem"
+import { OperationOutcome } from "fhir/r4"
+import { MatchManifest }    from ".."
+import { wait }             from "../src/lib"
+import config               from "../src/config"
 
 
 interface BulkMatchRegistrationOptions {
@@ -208,7 +209,7 @@ export default class BulkMatchClient
         // const json = await res.json()
     }
 
-    async waitForCompletion()
+    async waitForCompletion(frequency?: number, exitOn429 = false)
     {
         let res: Response;
         do {
@@ -217,13 +218,22 @@ export default class BulkMatchClient
                 this._manifest = await res.json()
                 return this._manifest
             }
+            else if (res.status === 429) {
+                const operationOutcome: OperationOutcome = await res.json()
+                if (exitOn429 || operationOutcome.issue[0].severity === "fatal") {
+                    return operationOutcome // exit if terminated
+                }
+                const f = frequency || +res.headers.get("retry-after")! * 1000
+                await wait(Math.max(f, 100))
+            }
             else if (res.status === 202) {
                 // console.log({
                 //     "x-progress" : res.headers.get("x-progress"),
                 //     "retry-after": res.headers.get("retry-after"),
                 //     loc: this.statusLocation
                 // })
-                await wait(Math.max(+res.headers.get("retry-after")! * 1000, 100))
+                const f = frequency || +res.headers.get("retry-after")! * 1000
+                await wait(Math.max(f, 100))
             }
             else {
                 return await res.json() // OperationOutcome

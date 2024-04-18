@@ -50,7 +50,7 @@ function expectOperationOutcome(json: any, {
     diagnostics
 }: {
     severity?: string
-    code?: number
+    code?: number | string
     diagnostics?: string | RegExp
 } = {}) {
     assert.equal(json.resourceType, "OperationOutcome")
@@ -1033,6 +1033,59 @@ describe("API", () => {
             assert.equal(result.extension.percentFakeMatches, 60)
         })
 
+        it ("percentFakeMatches + count", async () => {
+            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 100 })
+            const assertion = generateRegistrationToken({ clientId })
+            const res1      = await requestAccessToken(assertion)
+            const json1     = await res1.json()
+            const client    = new BulkMatchClient({
+                baseUrl,
+                accessToken: json1.access_token
+            })
+
+            await client.kickOff({
+                resource: [
+                    { resourceType: "Patient", id: "#1" },
+                    { resourceType: "Patient", id: "#2" },
+                    { resourceType: "Patient", id: "#3" },
+                ],
+                count: 2
+            })
+
+            const result = await client.waitForCompletion()
+
+            // console.log(result)
+            assert.equal(result.extension.percentFakeMatches, 100)
+            assert.equal(result.output.length, 2)
+        })
+
+        it ("percentFakeMatches producing 0 results", async () => {
+            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 10 })
+            const assertion = generateRegistrationToken({ clientId })
+            const res1      = await requestAccessToken(assertion)
+            const json1     = await res1.json()
+            const client    = new BulkMatchClient({
+                baseUrl,
+                accessToken: json1.access_token
+            })
+
+            const res = await client.kickOff({
+                resource: [
+                    { resourceType: "Patient", id: "#1" },
+                    { resourceType: "Patient", id: "#2" },
+                    { resourceType: "Patient", id: "#3" },
+                ],
+                // headers: {
+                //     authorization: `Bearer ${json1.access_token}`
+                // }
+            })
+
+            const result = await client.waitForCompletion()
+
+            // console.log(result, client)
+            assert.equal(result.extension.percentFakeMatches, 10)
+        })
+
         it ("Works", async () => {
             const client = new BulkMatchClient({ baseUrl })
             const res = await client.kickOff({
@@ -1275,6 +1328,52 @@ describe("API", () => {
             const json = await res3.json()
             // console.log(json)
             assert.equal(json.requiresAccessToken, true)
+        })
+
+        it ("Protects against too frequent requests", async () => {
+            const orig = config.retryAfter
+            config.retryAfter = 300
+            try {
+                const client = new BulkMatchClient({ baseUrl })
+                await client.kickOff({
+                    resource: [
+                        { resourceType: "Patient", id: "#1" },
+                        { resourceType: "Patient", id: "#2" },
+                        { resourceType: "Patient", id: "#3" },
+                    ]
+                })
+                const res = await client.waitForCompletion(100, true)
+                // console.log(res)
+                expectOperationOutcome(res, {
+                    severity: 'warning',
+                    diagnostics: /^Too many requests made/
+                })
+            } finally {
+                config.retryAfter = orig
+            }
+        })
+
+        it ("Terminates the session after too many requests", async () => {
+            const orig = config.retryAfter
+            config.retryAfter = 500
+            try {
+                const client = new BulkMatchClient({ baseUrl })
+                await client.kickOff({
+                    resource: [
+                        { resourceType: "Patient", id: "#1" },
+                        { resourceType: "Patient", id: "#2" },
+                        { resourceType: "Patient", id: "#3" },
+                    ]
+                })
+                const res = await client.waitForCompletion(100)
+                // console.log(res)
+                expectOperationOutcome(res, {
+                    severity: 'fatal',
+                    diagnostics: /Session terminated/
+                })
+            } finally {
+                config.retryAfter = orig
+            }
         })
 
         it ("Works", async () => {
