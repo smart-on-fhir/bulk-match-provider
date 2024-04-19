@@ -10,7 +10,7 @@ export default function PresetSelector({
     const selectedIndex = value ? PRESETS.findIndex(x => JSON.stringify(x) === JSON.stringify(value)) : -1
     return (
         <div className="btn-group w-100 preset-selector">
-            <div className="btn btn-primary form-control dropdown-toggle d-inline-block"
+            <div className="btn btn-primary form-control dropdown-toggle text-start text-lg-end text-wrap"
              data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
                 <b className="opacity-50">Preset:</b> { value ? value.name : "None" }
             </div>
