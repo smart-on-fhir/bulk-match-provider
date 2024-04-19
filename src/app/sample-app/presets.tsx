@@ -13,7 +13,7 @@ export interface Preset {
 
 export const PRESETS: (Preset | "-")[] = [
     {
-        name: <span>Match by <b className="badge text-bg-warning">MRN</b></span>,
+        name: <span>Match by <b className="badge text-success">MRN</b></span>,
         description: "Match by Medical Record Number. There should be exactly one match with 100% confidence.",
         params: {
             onlySingleMatch: true,
@@ -43,7 +43,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match by <b className="badge text-bg-warning">SSN</b></span>,
+        name: <span>Match by <b className="badge text-success">SSN</b></span>,
         description: "Match by Social Security Number. There should be exactly one match with 100% confidence.",
         params: {
             onlySingleMatch: true,
@@ -74,7 +74,7 @@ export const PRESETS: (Preset | "-")[] = [
     },
     "-",
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -109,7 +109,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Gender</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Gender</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -132,7 +132,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Address</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Address</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -167,7 +167,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Phone</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Phone</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -198,7 +198,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Email</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Email</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -228,7 +228,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span> Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Gender</b> + <b className="badge text-bg-light text-primary border">Phone</b></span>,
+        name: <span> Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Gender</b> + <b className="badge">Phone</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -260,7 +260,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Email</b> + <b className="badge text-bg-light text-primary border">Phone</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Email</b> + <b className="badge">Phone</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -294,7 +294,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Gender</b> + <b className="badge text-bg-light text-primary border">Email</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Gender</b> + <b className="badge">Email</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -325,7 +325,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Gender</b> + <b className="badge text-bg-light text-primary border">Phone</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Gender</b> + <b className="badge">Phone</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -357,7 +357,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Gender</b> + <b className="badge text-bg-light text-primary border">Address</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Gender</b> + <b className="badge">Address</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -393,7 +393,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Gender</b> + <b className="badge text-bg-light text-primary border">Phone</b> + <b className="badge text-bg-light text-primary border">Email</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Gender</b> + <b className="badge">Phone</b> + <b className="badge">Email</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,
@@ -428,7 +428,7 @@ export const PRESETS: (Preset | "-")[] = [
         }
     },
     {
-        name: <span>Match <b className="badge text-bg-light text-primary border">Name</b> + <b className="badge text-bg-light text-primary border">DOB</b> + <b className="badge text-bg-light text-primary border">Gender</b> + <b className="badge text-bg-light text-primary border">Phone</b> + <b className="badge text-bg-light text-primary border">Email</b> + <b className="badge text-bg-light text-primary border">Address</b></span>,
+        name: <span>Match <b className="badge">Name</b> + <b className="badge">DOB</b> + <b className="badge">Gender</b> + <b className="badge">Phone</b> + <b className="badge">Email</b> + <b className="badge">Address</b></span>,
         params: {
             onlySingleMatch: false,
             onlyCertainMatches: false,

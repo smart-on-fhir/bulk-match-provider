@@ -139,23 +139,8 @@ export default function MatchRequest({ state, dispatch }: { state: State, dispat
         <form onSubmit={sendMatchRequest} className="my-0">
             <hr className="my-0" />
             <div className="row">
-                <div className="col-lg-5">
-                    <div className="row mt-4">
-                        <div className="col">
-                            <label htmlFor="baseUrl" className="text-success">Server Base URL</label>
-                            <div className="form-text mb-1">FHIR server base URL (we will append <code>Patient/$bulk-match</code> to it)</div>
-                            <input
-                                className="form-control"
-                                type="url"
-                                id="baseUrl"
-                                placeholder="Server Base URL"
-                                value={baseUrl}
-                                onChange={ e => dispatch(updateKickOff({ baseUrl: e.target.value })) }
-                                readOnly
-                            />
-                        </div>
-                    </div>
-                    <div className="row mt-4">
+                <div className="col">
+                    <div className="row mt-2">
                         <div className="col">
                             <div className="form-check">
                                 <label className="form-check-label text-success">
@@ -167,8 +152,17 @@ export default function MatchRequest({ state, dispatch }: { state: State, dispat
                                     />
                                     Only Single Match
                                 </label>
+                                <div className="form-text mb-1 lh-sm">
+                                    <small>
+                                    If there are multiple potential matches, the server should identify the single
+                                    most appropriate match that should be used with future interactions with the
+                                    server (for example, as part of a subsequent create interaction).
+                                    </small>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                    <div className="row mt-2">
                         <div className="col">
                             <div className="form-check">
                                 <label className="form-check-label text-success">
@@ -180,17 +174,20 @@ export default function MatchRequest({ state, dispatch }: { state: State, dispat
                                     />
                                     Only Certain Matches
                                 </label>
+                                <div className="form-text mb-1 lh-sm">
+                                    <small>
+                                    If there are multiple potential matches, the server should be certain that each
+                                    of the records are for the same patient. This could happen if the records are
+                                    duplicates, are the same person for the purpose of data segregation, or other reasons.
+                                    When false, the server may return multiple results with each result graded accordingly.
+                                    </small>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div className="row mt-4">
+                    <div className="row mt-2">
                         <div className="col">
                             <label htmlFor="count" className="text-success">Count</label>
-                            <div className="form-text mb-1">
-                                The maximum number of records to return per resource.
-                                Be careful when using this, as it may prevent
-                                probable - and valid - matches from being returned.
-                            </div>
                             <input
                                 className="form-control"
                                 type="number"
@@ -201,19 +198,26 @@ export default function MatchRequest({ state, dispatch }: { state: State, dispat
                                 onChange={ e => dispatch(updateKickOff({ count: e.target.valueAsNumber })) }
                                 disabled={ !!onlySingleMatch }
                             />
+                            <div className="form-text mb-1 lh-sm">
+                                <small>
+                                The maximum number of records to return per resource.
+                                Be careful when using this, as it may prevent
+                                probable - and valid - matches from being returned.
+                                </small>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div className="col-lg-7 d-flex flex-column mt-4">
-                    <label htmlFor="resources" className="text-success">Resources</label>
-                    <div className="form-text mb-1">Patients to search for as JSON Array</div>
+                <div className="col-lg-7 d-flex flex-column">
+                    <label htmlFor="resources" className="text-success mt-2">Resources</label>
+                    <div className="form-text mb-1 lh-sm"><small>Patients to search for as JSON Array</small></div>
                     <textarea
-                        className="form-control flex-grow-1"
+                        className="form-control flex-grow-1 form-control-sm"
                         rows={8}
                         id="resources"
                         value={ resources }
                         onChange={ e => dispatch(updateKickOff({ resources: e.target.value })) }
-                        style={{ fontFamily: "monospace", fontSize: "90%" }}
+                        style={{ fontFamily: "monospace", fontSize: "80%" }}
                     />
                 </div>
             </div>
