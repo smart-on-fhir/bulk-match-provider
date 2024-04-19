@@ -35,6 +35,10 @@ interface JobOptions {
     percentFakeDuplicates: number
 
     simulatedError: string
+
+    matchServer: string
+        
+    matchToken: string
 }
 
 export default class Job
@@ -62,11 +66,17 @@ export default class Job
 
     public error: string = "";
 
+    protected matchServer: string = "";
+    
+    protected matchToken: string = "";
+
     protected options: JobOptions = {
         authenticated: false,
         percentFakeMatches: 0,
         percentFakeDuplicates: 0,
-        simulatedError: ""
+        simulatedError: "",
+        matchServer: "",
+        matchToken: ""
     };
 
     public manifest: app.MatchManifest = {
@@ -226,7 +236,7 @@ export default class Job
         await this.save("completed fakeRun")
     }
 
-    async run(params: app.MatchOperationParams, options: app.MatchOperationOptions = {}) {
+    async run(params: app.MatchOperationParams) {
         const { onlyCertainMatches, onlySingleMatch, resource } = params
         const count = params.count || Infinity
         if (this.options.percentFakeMatches) {
@@ -234,23 +244,13 @@ export default class Job
         }
         try {
             const inputPatients = resource.map(r => r.resource as fhir4.Patient)
-        
             let i = 0
             for (const inputPatient of inputPatients) {
-                if (options.matchServer) {
-                    await this.matchOneViaProxy({
-                        patient: inputPatient,
-                        onlyCertainMatches,
-                        count
-                    })
-                } else {
-                    await wait(config.jobThrottle, { signal: this.abortController.signal })
-                    await this.matchOne(inputPatient, count, onlySingleMatch, onlyCertainMatches)
-                }
+                await wait(config.jobThrottle, { signal: this.abortController.signal })
+                await this.matchOne(inputPatient, count, onlySingleMatch, onlyCertainMatches)
                 this._percentage = Math.floor(++i / inputPatients.length * 100)
                 await this.save("completed match " + i)
             }
-
             this.completedAt = Date.now()
         } catch (error) {
             this.error = (error as Error).message
@@ -259,27 +259,39 @@ export default class Job
     }
 
     async matchOne(input: Partial<fhir4.Patient>, count: number, onlySingleMatch = false, onlyCertainMatches = false) {
-        const result = matchAll(input, {
-            dataSet: patients,
-            baseUrl: this.baseUrl,
-            limit  : count,
-            onlySingleMatch,
-            onlyCertainMatches
-        })
-        const bundle: fhir4.Bundle = {
-            resourceType: "Bundle",
-            type: "searchset",
-            total: result.length,
-            meta: {
-                extension: [{
-                    url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
-                    valueReference: {
-                        reference: `Patient/${input.id}`
-                    }
-                }]
-            },
-            entry: result
-        };
+        let bundle: fhir4.Bundle;
+        
+        if (this.options.matchServer) {
+            bundle = await this.matchOneViaProxy({
+                patient: input,
+                onlyCertainMatches,
+                count
+            })
+        } else {
+            const result = matchAll(input, {
+                dataSet: patients,
+                baseUrl: this.baseUrl,
+                limit  : count,
+                onlySingleMatch,
+                onlyCertainMatches
+            })
+            bundle = {
+                resourceType: "Bundle",
+                type : "searchset",
+                total: result.length,
+                meta : {
+                    extension: [{
+                        url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
+                        valueReference: {
+                            reference: `Patient/${input.id}`
+                        }
+                    }]
+                },
+                entry: result
+            };
+        }
+
+
         if (!this.abortController.signal.aborted && !existsSync(this.path + "/files")) {
             await mkdir(this.path + "/files")
         }
@@ -293,7 +305,7 @@ export default class Job
                 ...this.manifest.output,
                 {
                     type : "Bundle",
-                    count: result.length,
+                    count: bundle.entry!.length,
                     url  : this.baseUrl + "/jobs/" + this.id + "/files/" + input.id + `-patient-matches.ndjson`
                 }
             ]
@@ -327,20 +339,27 @@ export default class Job
             })
         }
 
-        const res = await fetch("http://hapi.fhir.org/baseR4/Patient/$match", {
+        const url = new URL("Patient/$match", this.options.matchServer)
+
+        const res = await fetch(url, {
             method : "POST",
             body: JSON.stringify(body),
             signal: this.abortController.signal,
+            // @ts-ignore
             headers: {
                 "Content-Type": "application/json",
-                // accept: "application/fhir+ndjson"
+                accept: "application/fhir+json",
+                authentication: this.options.matchToken ? `Bearer ${this.options.matchToken}` : undefined
             }
         })
 
         const json = await res.json()
 
-        // console.log("Matching ", input.id)
-        console.log(json)
+        if (json.resourceType !== "Bundle") {
+            throw new Error('The remote server did not reply with a Bundle')
+        }
+
+        return json
     }
 
     public updateManifest(data: Partial<app.MatchManifest>) {

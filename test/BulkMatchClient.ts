@@ -8,10 +8,13 @@ import config               from "../src/config"
 
 
 interface BulkMatchRegistrationOptions {
-    jwks?: { keys: any[] }
-    jwks_url?: string
+    jwks       ?: { keys: any[] }
+    jwks_url   ?: string
     fakeMatches?: number
-    err?: string
+    duplicates ?: number
+    err        ?: string
+    matchServer?: string
+    matchToken ?: string
 }
 
 interface BulkMatchClientOptions {

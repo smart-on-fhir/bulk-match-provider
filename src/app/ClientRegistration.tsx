@@ -23,6 +23,8 @@ export default function ClientRegistration() {
     const [ loading    , setLoading    ] = useState(false)
     const [ error      , setError      ] = useState<Error | string | null>(null)
     const [ assertion  , setAssertion  ] = useState("")
+    const [ matchServer, setMatchServer] = useState("")
+    const [ matchToken , setMatchToken ] = useState("")
     const [ keyType    , setKeyType    ] = useState<"url" | "inline" | "sample">("url")
     const [ sampleAlg  , setSampleAlg  ] = useState<"ES384" | "RS384">("ES384")
     const [ fakeMatches, setFakeMatches] = useState(0)
@@ -41,9 +43,11 @@ export default function ClientRegistration() {
 
         let body = new URLSearchParams({
             err,
-            accessTokensExpireIn: dur + "",
-            fakeMatches: fakeMatches  + "",
-            duplicates : duplicates + ""
+            accessTokensExpireIn: dur         + "",
+            fakeMatches         : fakeMatches + "",
+            duplicates          : duplicates  + "",
+            matchServer,
+            matchToken
         })
 
         if (keyType === "url") {
@@ -198,19 +202,38 @@ export default function ClientRegistration() {
                 </div>
             </div>
             <div className="my-4 row">
-                <div className="col">
+                <div className={ "col" + (matchServer ? " opacity-50" : "") }>
                     <div className="d-flex justify-content-between">
                         <label htmlFor="fakeMatches">Fake Matches</label>
                         <span>{fakeMatches}%</span>
                     </div>
-                    <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => setFakeMatches(e.target.valueAsNumber)} min={0} max={100} step={10} />
+                    <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => setFakeMatches(e.target.valueAsNumber)} min={0} max={100} step={10} disabled={!!matchServer} />
                 </div>
-                <div className="col">
+                <div className={ "col" + (matchServer ? " opacity-50" : "") }>
                     <div className="d-flex justify-content-between">
                         <label htmlFor="fakeDuplicates">Fake Duplicates</label>
                         <span>{duplicates}%</span>
                     </div>
-                    <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => setDuplicates(e.target.valueAsNumber)} min={0} max={50} step={5} />
+                    <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => setDuplicates(e.target.valueAsNumber)} min={0} max={50} step={5} disabled={!!matchServer} />
+                </div>
+            </div>
+            <div className="my-4 row">
+                <div className="col">
+                    <label htmlFor="err" className="form-label">External Match Server</label>
+                    <input type="url" className="form-control" value={matchServer} onChange={e => setMatchServer(e.target.value)} />
+                    <div className="form-text small">
+                        If provided we will proxy match requests to this FHIR server. Enter the
+                        full base URL of the FHIR server and we will append <code>Patient/$match</code> to it.
+                    </div>
+                </div>
+                <div className="col">
+                    <label htmlFor="err" className="form-label">External Match Server Access Token</label>
+                    <input type="text" className="form-control" value={matchToken} onChange={e => setMatchToken(e.target.value)} />
+                    <div className="form-text small">
+                        If provided, this token will be sent using the authorization header like
+                        so: <code>Bearer your-token</code>. Keep this empty for
+                        public servers which do not require authentication.
+                    </div>
                 </div>
             </div>
             <div className="my-4 bg-primary-subtle" style={{ height: 2 }} />

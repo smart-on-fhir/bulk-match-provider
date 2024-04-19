@@ -163,7 +163,9 @@ export async function kickOff(req: app.Request, res: Response) {
         authenticated        : !!req.registeredClient,
         percentFakeDuplicates: req.registeredClient?.duplicates  ?? 0,
         percentFakeMatches   : req.registeredClient?.fakeMatches ?? 0,
-        simulatedError       : req.registeredClient?.err ?? ""
+        simulatedError       : req.registeredClient?.err         ?? "",
+        matchServer          : req.registeredClient?.matchServer ?? "",
+        matchToken           : req.registeredClient?.matchToken  ?? "",
     })
 
     // Don't wait for this (just start it here), but also don't crash the server

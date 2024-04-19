@@ -12,6 +12,7 @@ import MockServer           from "./MockServer"
 import app                  from ".."
 import BulkMatchClient      from "./BulkMatchClient"
 import { Bundle }           from "fhir/r4"
+import { faker }            from "@faker-js/faker"
 import "./init-tests"
 
 const PUBLIC_KEY = {
@@ -1707,4 +1708,132 @@ describe("API", () => {
         const res = await fetch(`${baseUrl}/fhir/Patient/whatever`)
         assert.equal(res.status, 404)
     })
+
+    describe("Proxy to external match server", function() {
+        // this.timeout(15000)
+
+        it ("passes access token to the remote server", async () => {
+
+            const matchToken = faker.string.hexadecimal({ length: 10 })
+
+            let receivedHeader = ""
+
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+                handler(req, res) {
+                    receivedHeader = req.headers.authentication + ""
+                    res.json({
+                        resourceType: "Bundle",
+                        id: faker.string.uuid(),
+                        type: "searchset",
+                        total: 0,
+                        entry: []
+                    })
+                }
+            })
+
+            const client = new BulkMatchClient({
+                baseUrl,
+                privateKey: PRIVATE_KEY,
+                registrationOptions: {
+                    jwks: { keys: [ PUBLIC_KEY ] },
+                    matchServer: mockServer.baseUrl,
+                    matchToken
+                }
+            })
+
+            await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
+            await client.waitForCompletion()
+
+            assert.equal(receivedHeader, "Bearer " + matchToken)
+        })
+
+        it ("expects the remote server to return a bundle", async () => {
+
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+                handler(req, res) {
+                    res.json({ resourceType: "OperationOutcome" })
+                }
+            })
+
+            const client = new BulkMatchClient({
+                baseUrl,
+                privateKey: PRIVATE_KEY,
+                registrationOptions: {
+                    jwks: { keys: [ PUBLIC_KEY ] },
+                    matchServer: mockServer.baseUrl
+                }
+            })
+
+            await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
+            const result = await client.waitForCompletion()
+            // console.log(result)
+            expectOperationOutcome(result, {
+                severity: 'error',
+                code: 'processing',
+                diagnostics: 'The remote server did not reply with a Bundle'
+            })
+        })
+
+        it ("basic use", async () => {
+
+            function randomPatientMatchEntry() {
+                const patientId = faker.string.uuid()
+                return {
+                    fullUrl: `${mockServer.baseUrl}/Patient/${patientId}`,
+                    resource: {
+                        resourceType: "Patient",
+                        id: patientId
+                    },
+                    search: {
+                        extension: [{
+                            url: "http://hl7.org/fhir/StructureDefinition/match-grade",
+                            valueCode: "certain"
+                        }],
+                        mode: "match",
+                        score: faker.number.float({ min: 0.6, max: 1 })
+                    }
+                }
+            }
+            
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+                handler(req, res) {
+                    res.json({
+                        resourceType: "Bundle",
+                        id: faker.string.uuid(),
+                        type: "searchset",
+                        total: 2,
+                        entry: [
+                            randomPatientMatchEntry(),
+                            randomPatientMatchEntry()
+                        ]
+                    })
+                }
+            })
+
+            const client = new BulkMatchClient({
+                baseUrl,
+                privateKey: PRIVATE_KEY,
+                registrationOptions: {
+                    jwks: { keys: [ PUBLIC_KEY ] },
+                    matchServer: mockServer.baseUrl
+                }
+            })
+
+            await client.kickOff({
+                resource: [
+                    { resourceType: "Patient", id: "#1" },
+                    { resourceType: "Patient", id: "#2" },
+                    { resourceType: "Patient", id: "#3" },
+                ]
+            })
+
+            const result = await client.waitForCompletion()
+
+            // console.log(result)
+
+            assert.equal(result.output.length, 3)
+            assert.equal(result.output.every((x: any) => x.count === 2), true)
+        })
+    })
+
 })

@@ -263,6 +263,12 @@ declare namespace app {
 
         /** Client issuedAt timestamp in seconds */
         iat: number
+
+        /** Base URL of a FHIR server to use for $match */
+        matchServer?: string
+
+        /** Optional accessToken for the external match server */
+        matchToken?: string
     }
 
     interface Request<

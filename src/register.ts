@@ -34,7 +34,9 @@ export function register(req: Request, res: Response) {
         accessTokensExpireIn: uInt(req.body.accessTokensExpireIn, 0) || undefined,
         fakeMatches         : uInt(req.body.fakeMatches, 0),
         duplicates          : uInt(req.body.duplicates, 0),
-        err                 : req.body.err
+        err                 : req.body.err,
+        matchServer         : req.body.matchServer,
+        matchToken          : req.body.matchToken
     };
 
     // Reply with signed token as text
