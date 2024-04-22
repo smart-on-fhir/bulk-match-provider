@@ -17,15 +17,7 @@ import {
 
 
 export async function abort(req: Request, res: Response) {
-    try {
-        var job = await Job.byId(req.params.id)
-    } catch (ex) {
-        // @ts-ignore
-        if (ex.http && ex.statusCode === 404) {
-            return res.status(404).json(createOperationOutcome(ex))
-        }
-        throw ex
-    }
+    const job = await Job.byId(req.params.id)
     await job.destroy()
     res.status(202).json(
         createOperationOutcome("Job deleted", { severity: "information" })

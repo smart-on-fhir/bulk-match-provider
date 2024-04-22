@@ -127,6 +127,7 @@ export function wait(ms: number, { unref, signal }: {
             signal.addEventListener("abort", doResolve)
         }
 
+        /* istanbul ignore next */
         if (unref) {
             timer.unref()
         }

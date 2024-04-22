@@ -1,7 +1,6 @@
-import assert from "node:assert/strict"
-import Job from "../../src/Job"
-import { lock } from "../../src/lib"
-import { chmod, open } from "node:fs/promises"
+import assert            from "node:assert/strict"
+import { writeFileSync } from "node:fs"
+import Job               from "../../src/Job"
 import "../init-tests"
 
 
@@ -16,44 +15,59 @@ describe("Job", () => {
         assert.equal(job1, job3, "same instances")
     })
 
-    it.skip ("byId", async () => {
-        
+    it ("byId when the file was overridden with invalid data", async () => {
         const job = await Job.create("base-url")
-        
-        // Job {
-        //     baseUrl: 'base-url',
-        //     createdAt: 1710874582083,
-        //     completedAt: 0,
-        //     manifest: {
-        //         transactionTime: 'Tue, 19 Mar 2024 18:56:22 GMT',
-        //         request: 'base-url/fhir/Patient/$bulk-match',
-        //         requiresAccessToken: false,
-        //         error: [],
-        //         output: []
-        //     },
-        //     id: '2e588422321968a2',
-        //     path: '/Users/vlad/dev/bulk-match-provider/test-jobs/2e588422321968a2'
-        // }
-        
-        // const unlock = await lock(job.path)
-        // console.log(job)
         const path = job.path + "/job.json"
-        // const handle = await open(path, "w+")
-        await chmod(path, 500)
-        await assert.rejects(Job.byId(job.id), { message: "Job not readable" })
-        // await handle.close()
-        // await unlock()
-        
-        // Job.byId()
-
+        writeFileSync(path, "abc", "utf8")
+        await assert.rejects(Job.byId(job.id), { message: "Job corrupted" })
     })
 
-    it ("destroyIfNeeded", async () => {
+    it ("byId when the file was overridden with invalid json", async () => {
+        const job = await Job.create("base-url")
+        const path = job.path + "/job.json"
+        writeFileSync(path, "123", "utf8")
+        await assert.rejects(Job.byId(job.id), { message: "Job corrupted" })
+    })
+
+    it ("destroyIfNeeded for jobs created too long ago", async () => {
+        
+        let destroyCalled = false
+
         const job = await Job.create("base-url")
         // @ts-ignore
         job.createdAt = 0
+
+        job.destroy = async () => {
+            destroyCalled = true
+            return job
+        }
+
         await job.save()
         await Job.destroyIfNeeded(job.id)
+
+        assert.equal(destroyCalled, true)
+    })
+
+    it ("destroyIfNeeded for completed jobs", async () => {
+        
+        let destroyCalled = false
+
+        const job = await Job.create("base-url")
+        // @ts-ignore
+        job.createdAt = 0
+        
+        // @ts-ignore
+        job._percentage = 100
+
+        job.destroy = async () => {
+            destroyCalled = true
+            return job
+        }
+
+        await job.save()
+        await Job.destroyIfNeeded(job.id)
+
+        assert.equal(destroyCalled, true)
     })
 
 })

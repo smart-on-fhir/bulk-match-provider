@@ -1,24 +1,24 @@
 import "dotenv/config"
-import { Server }                                   from "http"
-import cors                                         from "cors"
-import express, { json, urlencoded }                from "express"
-import type { NextFunction, Request, Response }     from "express"
-import { join }                                     from "path"
-import config                                       from "./config"
-import { HttpError, InternalServerError, NotFound } from "./HttpError"
-import { startChecking }                            from "./JobManager"
-import * as Gateway                                 from "./Gateway"
-import { router as FHIRRouter }                     from "./fhir" 
-import { smartConfig }                              from "./WellKnown"
-import { register }                                 from "./register"
-import { tokenHandler }                             from "./token"
-import { OAuthError }                               from "./OAuthError"
+import { AddressInfo }                          from "net"
+import { Server }                               from "http"
+import cors                                     from "cors"
+import express, { json, urlencoded }            from "express"
+import type { NextFunction, Request, Response } from "express"
+import { join }                                 from "path"
+import config                                   from "./config"
+import { InternalServerError, NotFound }        from "./HttpError"
+import { startChecking }                        from "./JobManager"
+import * as Gateway                             from "./Gateway"
+import { router as FHIRRouter }                 from "./fhir" 
+import { smartConfig }                          from "./WellKnown"
+import { register }                             from "./register"
+import { tokenHandler }                         from "./token"
+import { OAuthError }                           from "./OAuthError"
 import {
     asyncRouteWrap,
     checkAuth,
     createOperationOutcome
 } from "./lib"
-import { AddressInfo } from "net"
 
 
 const app = express()
@@ -93,7 +93,7 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
         });
     }
 
-    if (!(error instanceof HttpError)) {
+    if (!error.http) {
         error = new InternalServerError({ cause: error })
     }
     

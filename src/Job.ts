@@ -438,6 +438,9 @@ export default class Job
         
         try {
             var json = JSON.parse(data)
+            if(!json || typeof json !== "object") {
+                throw new Error("invalid type of data stored in the job file")
+            }
         } catch (e) {
             await release()
             throw new InternalServerError("Job corrupted", {
@@ -445,16 +448,9 @@ export default class Job
                 cause: e
             })
         }
-        
-        try {
-            Object.assign(job, json)
-        } catch (e) {
-            await release()
-            throw new InternalServerError("Export job could not be loaded", { cause: e })
-        }
-        
+
+        Object.assign(job, json)
         await release()
-        
         return job
     }
 

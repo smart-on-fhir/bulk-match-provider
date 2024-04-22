@@ -40,7 +40,7 @@ const map = {
     NetworkAuthenticationRequired : 511,
 }
 
-export class HttpError extends Error
+class HttpError extends Error
 {
     public readonly http = true
     public statusCode: number
@@ -52,11 +52,11 @@ export class HttpError extends Error
 
     constructor(code: number, message?: string, data?: ErrorData) {
         // @ts-ignore
-        super(message || STATUS_CODES[code + ""] || "HttpError", data?.cause)
+        super(message || STATUS_CODES[code + ""]!, data?.cause)
         this.statusCode = code
         this.status     = code
         this.name       = this.constructor.name
-        this.message    = message || STATUS_CODES[code + ""] || "HttpError"
+        this.message    = message || STATUS_CODES[code + ""]!
         this.data       = data
         if (data && data.cause) {
             this.cause = data.cause
