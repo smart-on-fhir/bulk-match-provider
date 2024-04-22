@@ -101,6 +101,14 @@ export default class Job
         Job.instances[this.id] = this
     }
 
+    static countRunningJobs() {
+        return Object.keys(Job.instances).filter(id => Job.instances[id].percentage < 100).length;
+    }
+
+    static canCreate() {
+        return Job.countRunningJobs() < config.maxRunningJobs;
+    }
+
     static async create(baseUrl: string, options: Partial<JobOptions> = {}) {
         const job = new Job()
         job.baseUrl = baseUrl

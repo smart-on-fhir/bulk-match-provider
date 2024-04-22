@@ -144,6 +144,14 @@ export async function downloadFile(req: app.Request, res: Response) {
 
 export async function kickOff(req: app.Request, res: Response) {
     
+    if (!Job.canCreate()) {
+        res.header("Retry-after", "10")
+        return res.status(429).json(createOperationOutcome(
+            "Too many matching jobs are running at the moment. Please try again later.",
+            { severity: "fatal" }
+        ))
+    }
+
     if (req.registeredClient?.err === "too_many_patient_params") {
         throw new BadRequest("Too many patient parameters (simulated error)")
     }

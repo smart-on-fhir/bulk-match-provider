@@ -4,6 +4,8 @@ import assert               from "node:assert/strict"
 import jwt, { SignOptions } from "jsonwebtoken"
 import jwkToPem             from "jwk-to-pem"
 import moment               from "moment"
+import { Bundle }           from "fhir/r4"
+import { faker }            from "@faker-js/faker"
 import run                  from "../src/index"
 import config               from "../src/config"
 import { wait }             from "../src/lib"
@@ -11,8 +13,7 @@ import patients             from "../src/patients"
 import MockServer           from "./MockServer"
 import app                  from ".."
 import BulkMatchClient      from "./BulkMatchClient"
-import { Bundle }           from "fhir/r4"
-import { faker }            from "@faker-js/faker"
+import Job                  from "../src/Job"
 import "./init-tests"
 
 const PUBLIC_KEY = {
@@ -1278,6 +1279,36 @@ describe("API", () => {
             await client.waitForCompletion()
             assert.equal(client.manifest.output.length, 1)
             assert.equal(client.manifest.output[0].count, 0)
+        })
+
+        it ("rejects if to many jobs are currently running", async () => {
+            const { maxRunningJobs, jobThrottle } = config
+            try {
+                config.maxRunningJobs = 1
+                config.jobThrottle    = 100
+                const client = new BulkMatchClient({ baseUrl })
+                
+                const { status: status1 } = await client.kickOff({
+                    resource: [
+                        { resourceType: "Patient", id: "1" },
+                        { resourceType: "Patient", id: "2" }
+                    ]
+                })
+                assert.equal(Job.countRunningJobs(), 1)
+                assert.equal(status1, 202)
+
+                const { status: status2 } = await client.kickOff({
+                    resource: [
+                        { resourceType: "Patient", id: "1" },
+                        { resourceType: "Patient", id: "2" }
+                    ]
+                })
+                assert.equal(Job.countRunningJobs(), 1)
+                assert.equal(status2, 429)
+            } finally {
+                config.maxRunningJobs = maxRunningJobs
+                config.jobThrottle    = jobThrottle
+            }
         })
     })
 

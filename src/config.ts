@@ -53,5 +53,9 @@ export default {
     throttle: uInt(env.THROTTLE, 0),
 
     // Limit the maximum number of records to return per resource
-    maxMatches: Infinity
+    maxMatches: Infinity,
+
+    // If we reach this number more jobs cannot be started and clients will be
+    // required to retry later after some jobs have hopefully completed
+    maxRunningJobs: uInt(env.MAX_RUNNING_JOBS, 100)
 }
