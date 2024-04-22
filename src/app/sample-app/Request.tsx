@@ -1,5 +1,30 @@
-import Collapse from "./Collapse"
+import Collapse    from "./Collapse"
 import { Request } from "./State"
+
+function shouldDisplayResponseHeader(name: string) {
+    name = name.toLowerCase()
+
+    if ([
+        "connection",
+        "date",
+        "etag",
+        "retry-after",
+        "x-progress",
+        "expires"
+    ].includes(name)) {
+        return true
+    }
+
+    if (name.startsWith("access-control-")) {
+        return true;
+    }
+
+    if (name.startsWith("content-")) {
+        return true;
+    }
+
+    return false
+}
 
 
 export default function RequestView({ request }: { request: Request }) {
@@ -59,7 +84,7 @@ export default function RequestView({ request }: { request: Request }) {
                 { result ?
                     <pre>
                         <code className="language-http">{
-                            Object.keys(responseHeaders).map(k => `${k}: ${responseHeaders[k]}`).join("\n")
+                            Object.keys(responseHeaders).filter(shouldDisplayResponseHeader).map(k => `${k}: ${responseHeaders[k]}`).join("\n")
                         }</code>
                         <br/>
                         <br/>
