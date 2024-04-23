@@ -249,7 +249,8 @@ declare namespace app {
               "too_many_patient_params" |
               "too_frequent_status_requests" |
               "file_not_found" |
-              "unauthorized_client"
+              "unauthorized_client" |
+              "transient_status_error"
 
         /**
          * Percent of fake matches

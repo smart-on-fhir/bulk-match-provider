@@ -187,6 +187,7 @@ export default function ClientRegistration() {
                             <option value="unauthorized_client">Unauthorized client</option>
                             <option value="too_many_patient_params">Too many patient parameters at Kick-off request</option>
                             <option value="too_frequent_status_requests">Too frequent status requests</option>
+                            <option value="transient_status_error">Job temporarily failing (transient error)</option>
                             <option value="file_not_found">File not found during download</option>
                         </optgroup>
                     </select>

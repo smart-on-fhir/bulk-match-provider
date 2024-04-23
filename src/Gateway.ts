@@ -44,6 +44,16 @@ export async function checkStatus(req: app.Request, res: Response) {
         throw new TooManyRequests("Too frequent status requests (simulated error)")
     }
 
+    if (req.registeredClient?.err === "transient_status_error") {
+        return res.status(500).json(createOperationOutcome(
+            "The job is currently failing but you can still retry later (simulated error)",
+            {
+                severity : "error",
+                issueCode: "transient"
+            }
+        ))
+    }
+
     try {
         var job = await Job.byId(req.params.id)
     } catch (ex) {
@@ -51,7 +61,7 @@ export async function checkStatus(req: app.Request, res: Response) {
     }
 
     if (job.error) {
-        return res.status(500).json(createOperationOutcome(job.error,  { severity: "error" }))
+        return res.status(500).json(createOperationOutcome(job.error, { severity: "error" }))
     }
 
     if (job.percentage === 100) {

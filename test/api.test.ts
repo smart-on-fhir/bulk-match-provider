@@ -1334,6 +1334,23 @@ describe("API", () => {
             })
         })
 
+        it ("Can simulate transient_status_error error", async () => {
+            const clientId  = jwt.sign({ jwks: { keys: [ PUBLIC_KEY ] }, err: "transient_status_error" }, config.jwtSecret)
+            const assertion = generateRegistrationToken({ clientId })
+            const res  = await requestAccessToken(assertion)
+            const json = await res.json()
+            const res2 = await fetch(`${baseUrl}/jobs/whatever/status`, {
+                headers: { authorization: `Bearer ${json.access_token}` }
+            })
+            const json2 = await res2.json()
+            assert.equal(res2.status, 500)
+            expectOperationOutcome(json2, {
+                severity   : "error",
+                code       : "transient",
+                diagnostics: "The job is currently failing but you can still retry later (simulated error)"
+            })
+        })
+
         it ("Rejects on missing jobs", async () => {
             const res = await fetch(`${baseUrl}/jobs/missingJob/status`)
             const txt = await res.text()
