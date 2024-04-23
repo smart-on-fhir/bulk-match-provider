@@ -3,6 +3,7 @@ import patients from "../../src/patients"
 import "../init-tests"
 import {
     flatNames,
+    getCertainty,
     match,
     matchAddress,
     matchDOB,
@@ -455,4 +456,21 @@ describe("samePatients", () => {
         assert.equal(samePatients(a, c), false)
         assert.equal(samePatients(c, b), false)
     })
+})
+
+it ("getCertainty", () => {
+    const map: any = {
+        1     : "certain",
+        2     : "certain",
+        0.8   : "probable",
+        0.85  : "probable",
+        0.65  : "possible",
+        0.6   : "possible",
+        0.5   : "certainly-not",
+        0     : "certainly-not",
+        "-0.5": "certainly-not"
+    }
+    for (const key in map) {
+        assert.equal(getCertainty(+key), map[key])
+    }
 })

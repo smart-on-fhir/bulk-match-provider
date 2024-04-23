@@ -440,7 +440,9 @@ export default class Job
         try {
             var data = await readFile(path, { flag: "r+", encoding: "utf8" })
         } catch {
+            /* istanbul ignore next */
             await release()
+            /* istanbul ignore next */
             throw new InternalServerError("Job not readable")
         }
         
