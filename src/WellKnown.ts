@@ -6,9 +6,8 @@ import config from "./config"
 export function smartConfig(req: Request, res: Response) {
     const baseUrl = getRequestBaseURL(req)
     res.json({
-        token_endpoint        : `${baseUrl}/auth/token`,
-        authorization_endpoint: `${baseUrl}/auth/authorize`,
-        registration_endpoint : `${baseUrl}/auth/register`,
+        token_endpoint       : `${baseUrl}/auth/token`,
+        registration_endpoint: `${baseUrl}/auth/register`,
 
         grant_types_supported: [
             "client_credentials"

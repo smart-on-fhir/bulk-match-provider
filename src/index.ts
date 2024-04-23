@@ -31,10 +31,7 @@ app.use(json());
 // throttle if needed
 app.use((_rec, _res, next: NextFunction) => setTimeout(next, config.throttle));
 
-// .well-known/smart-configuration
-app.get("/.well-known/smart-configuration", smartConfig)
-
-
+// auth
 app.post("/auth/register", urlencoded({ extended: false }), register)
 app.post("/auth/token", urlencoded({ extended: false }), tokenHandler)
 

@@ -8,10 +8,15 @@ import {
     createOperationOutcome,
     getRequestBaseURL
 } from "./lib"
+import { smartConfig } from "./WellKnown"
 
 
 export const router = Router({ mergeParams: true })
 
+// .well-known/smart-configuration
+router.get("/.well-known/smart-configuration", smartConfig)
+
+// metadata
 router.post("/Patient/\\$bulk-match", checkAuth, asyncRouteWrap(kickOff))
 
 router.get("/Patient", (req, res) => {

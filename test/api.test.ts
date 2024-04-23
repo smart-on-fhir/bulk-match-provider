@@ -1653,11 +1653,10 @@ describe("API", () => {
     })
 
     it (".well-known/smart-configuration", async () => {
-        const res = await fetch(`${baseUrl}/.well-known/smart-configuration`)
+        const res = await fetch(`${baseUrl}/fhir/.well-known/smart-configuration`)
         const json = await res.json()
-        assert.equal(json.token_endpoint        , `${baseUrl}/auth/token`    )
-        assert.equal(json.authorization_endpoint, `${baseUrl}/auth/authorize`)
-        assert.equal(json.registration_endpoint , `${baseUrl}/auth/register` )
+        assert.equal(json.token_endpoint        , `${baseUrl}/auth/token`   )
+        assert.equal(json.registration_endpoint , `${baseUrl}/auth/register`)
     })
 
     it ("Can GET /config", async () => {
