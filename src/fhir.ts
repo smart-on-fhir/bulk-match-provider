@@ -3,10 +3,8 @@ import { kickOff } from "./Gateway"
 import patients    from "./patients"
 import {
     asyncRouteWrap,
-    bundle,
     checkAuth,
-    createOperationOutcome,
-    getRequestBaseURL
+    createOperationOutcome
 } from "./lib"
 import { smartConfig } from "./WellKnown"
 
@@ -19,12 +17,7 @@ router.get("/.well-known/smart-configuration", smartConfig)
 // metadata
 router.post("/Patient/\\$bulk-match", checkAuth, asyncRouteWrap(kickOff))
 
-router.get("/Patient", (req, res) => {
-    res.type("application/fhir+json; charset=utf-8")
-    const baseUrl = getRequestBaseURL(req)
-    res.json(bundle(patients, baseUrl))
-})
-
+// Get one patient by ID
 router.get("/Patient/:id", (req, res) => {
     res.type("application/fhir+json; charset=utf-8")
     const patient = patients.find(p => p.id === req.params.id)
