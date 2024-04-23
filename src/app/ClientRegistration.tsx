@@ -138,7 +138,7 @@ export default function ClientRegistration() {
                             <label className="form-label">Public Key JWK</label>
                             <div className="form-label text-danger"><small>{ jwks ? jwksError : "" }</small></div>
                         </div>
-                        <textarea className="form-control form-control-sm font-monospace" rows={11} placeholder="{ Public Key as JWK }" style={{
+                        <textarea className="form-control form-control-sm font-monospace" rows={10} placeholder="{ Public Key as JWK }" style={{
                             whiteSpace: "pre",
                             lineHeight: 1.2,
                             fontSize: "13px"
@@ -160,7 +160,7 @@ export default function ClientRegistration() {
                             </ul>
                             <i className="bi bi-info-circle-fill text-primary me-2" />
                             Your client must sign it's tokens with the private key found at:
-                            <ul>
+                            <ul className="mb-0">
                                 <li><a href={`${BACKEND_BASE_URL}/keys/${sampleAlg}.private.json`} target="_blank" rel="noreferrer">{BACKEND_BASE_URL}/keys/{sampleAlg}.private.json</a></li>
                                 <li><a href={`${BACKEND_BASE_URL}/keys/${sampleAlg}.private.pem`} target="_blank" rel="noreferrer">{BACKEND_BASE_URL}/keys/{sampleAlg}.private.pem</a></li>
                             </ul>
