@@ -1,12 +1,13 @@
-import { Router }  from "express"
-import { kickOff } from "./Gateway"
-import patients    from "./patients"
+import { Router }                    from "express"
+import { kickOff }                   from "./Gateway"
+import patients                      from "./patients"
+import { handleOperationDefinition } from "./OperationDefinition"
+import { smartConfig }               from "./WellKnown"
 import {
     asyncRouteWrap,
     checkAuth,
     createOperationOutcome
 } from "./lib"
-import { smartConfig } from "./WellKnown"
 
 
 export const router = Router({ mergeParams: true })
@@ -15,6 +16,11 @@ export const router = Router({ mergeParams: true })
 router.get("/.well-known/smart-configuration", smartConfig)
 
 // metadata
+
+// $bulk-match OperationDefinition
+router.get("/OperationDefinition/bulk-match", handleOperationDefinition)
+
+// $bulk-match Operation
 router.post("/Patient/\\$bulk-match", checkAuth, asyncRouteWrap(kickOff))
 
 // Get one patient by ID

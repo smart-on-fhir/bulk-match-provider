@@ -1739,6 +1739,13 @@ describe("API", () => {
         })
     })
 
+    it ("OperationDefinition/bulk-match", async () => {
+        const res = await fetch(`${baseUrl}/fhir/OperationDefinition/bulk-match`)
+        assert.equal(res.status, 200)
+        assert.match(res.headers.get("content-type")!, /\bjson\b/)
+    })
+
+
     it ("Get patient by id", async () => {
         const res = await fetch(`${baseUrl}/fhir/Patient/${patients[0].id}`)
         assert.equal(res.status, 200)
