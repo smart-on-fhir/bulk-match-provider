@@ -90,19 +90,19 @@ export default function ServerInfo() {
                         searching through, you can download them as ndjson file.
                     </div>
                 </dd>
-                <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />List Current Match Jobs</dt>
+                {/* <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />List Current Match Jobs</dt>
                 <dd className="mb-4">
                     <code><NewTabLink href={ BACKEND_BASE_URL  + "/jobs" }/></code>
                     <div className="small text-secondary">
                         Keep an eye on the current match jobs on the server (<span className="text-danger">DEPRECATED!</span>) 
                     </div>
-                </dd>
+                </dd> */}
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Completed Jobs are Deleted After</dt>
                 <dd className="mb-4">
                     <code>{ config.completedJobLifetimeMinutes } minutes</code>
                     <div className="small text-secondary">
-                        Once a match job is completed you will have 5 minutes to
-                        download the result before they are deleted.
+                        Once a match job is completed you will have { config.completedJobLifetimeMinutes } minutes
+                        to download the results before they are deleted.
                     </div>
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Pending Jobs are Deleted After</dt>
@@ -110,8 +110,8 @@ export default function ServerInfo() {
                     <code>{ config.jobMaxLifetimeMinutes } minutes</code>
                     <div className="small text-secondary">
                         If for whatever reason a match job is unable to complete
-                        in one hour, iit will be deleted regardless of its current
-                        status.
+                        in { config.jobMaxLifetimeMinutes } minutes, it will be
+                        deleted regardless of its current status.
                     </div>
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Max Patient Parameters</dt>

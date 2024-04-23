@@ -63,7 +63,7 @@ app.get("/patients", (req, res) => res.sendFile(join(__dirname, "../data/patient
 app.get("/config", (req, res) => res.json({
     supportedAlgorithms        : config.supportedAlgorithms,
     jobMaxLifetimeMinutes      : config.jobMaxLifetimeMinutes,
-    completedJobLifetimeMinutes: config.jobMaxLifetimeMinutes,
+    completedJobLifetimeMinutes: config.completedJobLifetimeMinutes,
     resourceParameterLimit     : config.resourceParameterLimit
 }))
 
