@@ -1745,6 +1745,27 @@ describe("API", () => {
         assert.match(res.headers.get("content-type")!, /\bjson\b/)
     })
 
+    it ("CapabilityStatement", async () => {
+        const res = await fetch(`${baseUrl}/fhir/metadata`)
+        assert.equal(res.status, 200)
+        assert.match(res.headers.get("content-type")!, /\bjson\b/)
+    })
+
+    it ("CapabilityStatement with unsupported _format parameter", async () => {
+        const res = await fetch(`${baseUrl}/fhir/metadata?_format=whatever`)
+        assert.equal(res.status, 400)
+        assert.match(res.headers.get("content-type")!, /\bjson\b/)
+        const json = await res.json()
+        expectOperationOutcome(json, { diagnostics: "Only json format is supported" })
+    })
+
+    it ("CapabilityStatement with unsupported accept header", async () => {
+        const res = await fetch(`${baseUrl}/fhir/metadata`, { headers: { accept: "application/xml" }})
+        assert.equal(res.status, 400)
+        assert.match(res.headers.get("content-type")!, /\bjson\b/)
+        const json = await res.json()
+        expectOperationOutcome(json, { diagnostics: "Only json format is supported" })
+    })
 
     it ("Get patient by id", async () => {
         const res = await fetch(`${baseUrl}/fhir/Patient/${patients[0].id}`)

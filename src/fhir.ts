@@ -2,6 +2,7 @@ import { Router }                    from "express"
 import { kickOff }                   from "./Gateway"
 import patients                      from "./patients"
 import { handleOperationDefinition } from "./OperationDefinition"
+import handleCapabilityStatement     from "./CapabilityStatement"
 import { smartConfig }               from "./WellKnown"
 import {
     asyncRouteWrap,
@@ -16,6 +17,7 @@ export const router = Router({ mergeParams: true })
 router.get("/.well-known/smart-configuration", smartConfig)
 
 // metadata
+router.get("/metadata", handleCapabilityStatement)
 
 // $bulk-match OperationDefinition
 router.get("/OperationDefinition/bulk-match", handleOperationDefinition)
