@@ -392,7 +392,7 @@ export default class Job
 
     public async save(label = "", skipLock = false) {
         // console.log("======== SAVE ========", label)
-        if (!this.abortController.signal.aborted) {
+        if (!this.abortController.signal.aborted && !this.destroyed) {
             let release
             if (!skipLock) {
                 release = await lock(this.path)
