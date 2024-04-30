@@ -1138,7 +1138,8 @@ describe("API", () => {
             await client.waitForCompletion()
             assert.equal(client.manifest.output.length, 1)
             assert.equal(client.manifest.output[0].count, 1)
-            const bundle = await client.download(0)
+            const ndjson = await client.download(0)
+            const bundle = JSON.parse(ndjson.split(/\n/)[0])
             assert.equal(bundle.entry[0].resource.telecom[0].value, "555-790-7955")
         })
 
@@ -1171,7 +1172,14 @@ describe("API", () => {
 
             await client.waitForCompletion()
             assert.equal(client.manifest.output.length, 1)
-            assert.equal(client.manifest.output[0].count, 0)
+            const count = client.manifest.output[0].count
+            assert.ok(count === 0 || count === 1)
+            if (count === 1) {
+                const ndjson = await client.download(0)
+                const bundle = JSON.parse(ndjson.split(/\n/)[0])
+                assert.equal(bundle.total, 0)
+                assert.deepEqual(bundle.entry, [])
+            }
         })
 
         it ("onlySingleMatch + fakeMatches = pick the first input patient", async () => {

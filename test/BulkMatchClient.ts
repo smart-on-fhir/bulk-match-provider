@@ -244,14 +244,16 @@ export default class BulkMatchClient
         } while (true);
     }
 
+    async download(): Promise<string[]>;
+    async download(index: number): Promise<string>;
     async download(index?: number)
     {
         if (!index && index !== 0) {
-            return Promise.all(this.manifest.output.map(x => this.request(x.url).then(r => r.json())))
+            return Promise.all(this.manifest.output.map(x => this.request(x.url).then(r => r.text())))
         }
 
         const fileResponse = await this.request(this.manifest.output[index].url)
-        return await fileResponse.json()
+        return await fileResponse.text()
     }
 
     async cancel()
