@@ -29,15 +29,35 @@ export function register(req: Request, res: Response) {
 
     // Build the result token
     let jwtToken: Record<string, any> = {
-        jwks                : jwksJSON,
-        jwks_url            : jwks_url || undefined,
-        accessTokensExpireIn: uInt(req.body.accessTokensExpireIn, 0) || undefined,
-        fakeMatches         : uInt(req.body.fakeMatches, 0),
-        duplicates          : uInt(req.body.duplicates, 0),
-        err                 : req.body.err,
-        matchServer         : req.body.matchServer,
-        matchToken          : req.body.matchToken
+        jwks    : jwksJSON,
+        jwks_url: jwks_url || undefined,
+        err     : req.body.err
     };
+
+    const accessTokensExpireIn = uInt(req.body.accessTokensExpireIn, 0)
+    if (accessTokensExpireIn) {
+        jwtToken.accessTokensExpireIn = accessTokensExpireIn
+    }
+
+    const fakeMatches = uInt(req.body.fakeMatches, 0)
+    if (fakeMatches) {
+        jwtToken.fakeMatches = fakeMatches
+    }
+    
+    const duplicates = uInt(req.body.duplicates , 0)
+    if (duplicates) {
+        jwtToken.duplicates = duplicates
+    }
+
+    const { matchServer } = req.body
+    if (matchServer) {
+        jwtToken.matchServer = matchServer
+    }
+
+    const matchHeaders = JSON.parse(req.body.matchHeaders || "null")
+    if (Array.isArray(matchHeaders)) {
+        jwtToken.matchHeaders = matchHeaders
+    }
 
     // Reply with signed token as text
     res.type("text").send(jwt.sign(jwtToken, config.jwtSecret));

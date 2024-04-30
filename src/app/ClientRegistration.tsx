@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react"
+import ParamList from "./ParamList";
 // import { BACKEND_BASE_URL } from "./State"
 export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ?
     window.location.origin :
@@ -19,16 +20,17 @@ export default function ClientRegistration() {
     const [ jwks       , setJwks       ] = useState("")
     const [ jwksError  , setJwksError  ] = useState("")
     const [ err        , setErr        ] = useState("")
-    const [ dur        , setDur        ] = useState(15)
+    const [ dur        , setDur        ] = useState(0)
     const [ loading    , setLoading    ] = useState(false)
     const [ error      , setError      ] = useState<Error | string | null>(null)
     const [ assertion  , setAssertion  ] = useState("")
     const [ matchServer, setMatchServer] = useState("")
-    const [ matchToken , setMatchToken ] = useState("")
     const [ keyType    , setKeyType    ] = useState<"url" | "inline" | "sample">("url")
     const [ sampleAlg  , setSampleAlg  ] = useState<"ES384" | "RS384">("ES384")
     const [ fakeMatches, setFakeMatches] = useState(0)
     const [ duplicates , setDuplicates ] = useState(0)
+    const [ mode       , setMode       ] = useState<"normal" | "fake" | "remote">("normal")
+    const [ headers    , setHeaders    ] = useState<[string, string][]>([])
 
     const cannotSubmit = !!(
         loading ||
@@ -41,14 +43,7 @@ export default function ClientRegistration() {
         setLoading(true)
         setError(null)
 
-        let body = new URLSearchParams({
-            err,
-            accessTokensExpireIn: dur         + "",
-            fakeMatches         : fakeMatches + "",
-            duplicates          : duplicates  + "",
-            matchServer,
-            matchToken
-        })
+        let body = new URLSearchParams({ err, accessTokensExpireIn: dur + "" })
 
         if (keyType === "url") {
             body.set("jwks_url", jwksUrl)
@@ -58,6 +53,14 @@ export default function ClientRegistration() {
         }
         else if (keyType === "sample") {
             body.set("jwks_url", `${BACKEND_BASE_URL}/keys/${sampleAlg}.jwks.json`)
+        }
+
+        if (mode === "fake") {
+            body.set("fakeMatches", fakeMatches + "")
+            body.set("duplicates" , duplicates + "")
+        } else if (mode === "remote") {
+            body.set("matchServer", matchServer)
+            body.set("matchHeaders", JSON.stringify(headers))
         }
 
         fetch("/auth/register", {
@@ -124,7 +127,7 @@ export default function ClientRegistration() {
                 </div>
                 <div className="col-lg-6 mb-5">
                     { keyType === "url" && <>
-                        <label htmlFor="jwks-url" className="form-label">JWKS URL</label>
+                        <label htmlFor="jwks-url" className="form-label text-primary-emphasis">JWKS URL</label>
                         <input type="url" className="form-control" id="jwks-url" value={jwksUrl} onChange={e => setJwksUrl(e.target.value)} placeholder="https://yourdomain.com/your-public-jwks.json" />
                         <div className="form-text small">
                             This URL communicates the TLS-protected endpoint where the client's public JWK Set can
@@ -135,7 +138,7 @@ export default function ClientRegistration() {
                     </> }
                     { keyType === "inline" && <>
                         <div className="d-flex justify-content-between">
-                            <label className="form-label">Public Key JWK</label>
+                            <label className="form-label text-primary-emphasis">Public Key JWK</label>
                             <div className="form-label text-danger"><small>{ jwks ? jwksError : "" }</small></div>
                         </div>
                         <textarea className="form-control form-control-sm font-monospace" rows={10} placeholder="{ Public Key as JWK }" style={{
@@ -172,7 +175,7 @@ export default function ClientRegistration() {
             <div className="my-2 bg-primary-subtle" style={{ height: 2 }} />
             <div className="mb-4 mt-3 row">
                 <div className="col">
-                    <label htmlFor="err" className="form-label">Simulated Error</label>
+                    <label htmlFor="err" className="form-label text-primary-emphasis">Simulated Error</label>
                     <select className="form-select" value={err} onChange={e => setErr(e.target.value)}>
                         <option value="">None</option>
                         <optgroup label="During Authentication">
@@ -191,64 +194,105 @@ export default function ClientRegistration() {
                             <option value="file_not_found">File not found during download</option>
                         </optgroup>
                     </select>
+                    <div className="form-text small">
+                        Force the server to throw certain type of error in different
+                        places (useful for manual testing).
+                    </div>
                 </div>
                 <div className="col">
-                    <label htmlFor="dur" className="form-label">Access Token Lifetime</label>
+                    <label htmlFor="dur" className="form-label text-primary-emphasis">Access Token Lifetime</label>
                     <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
+                        <option value={0}>Auto (whatever the client specified)</option>
                         <option value={1}>1 minute</option>
                         <option value={5}>5 minutes</option>
                         <option value={15}>15 minutes</option>
                         <option value={60}>1 hour</option>
                     </select>
+                    <div className="form-text small">
+                        Normally the client will determine how long should the
+                        access token be issued for, but this setting will take
+                        precedence if used.
+                    </div>
                 </div>
             </div>
-            <div className="my-4 row">
-                <div className={ "col" + (matchServer ? " opacity-50" : "") }>
-                    <div className="d-flex justify-content-between">
-                        <label htmlFor="fakeMatches">Fake Matches</label>
-                        <span>{fakeMatches}%</span>
-                    </div>
-                    <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => setFakeMatches(e.target.valueAsNumber)} min={0} max={100} step={10} disabled={!!matchServer} />
-                </div>
-                <div className={ "col" + (matchServer ? " opacity-50" : "") }>
-                    <div className="d-flex justify-content-between">
-                        <label htmlFor="fakeDuplicates">Fake Duplicates</label>
-                        <span>{duplicates}%</span>
-                    </div>
-                    <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => setDuplicates(e.target.valueAsNumber)} min={0} max={50} step={5} disabled={!!matchServer} />
-                </div>
-            </div>
-            <div className="my-4 row">
+            <div className="mb-2 mt-3 row">
                 <div className="col">
-                    <label htmlFor="err" className="form-label">External Match Server</label>
-                    <input type="url" className="form-control" value={matchServer} onChange={e => setMatchServer(e.target.value)} />
+                    <label className="form-label text-primary-emphasis">Match Mode</label>
+                    <div className="btn-group w-100">
+                        <button type="button" className={"btn" + (mode === "normal" ? " btn-outline-primary active" : " border-secondary border-opacity-25")} onClick={() => setMode("normal")}>Built-in Match</button>
+                        <button type="button" className={"btn" + (mode === "fake"   ? " btn-outline-primary active" : " border-secondary border-opacity-25")} onClick={() => setMode("fake"  )}>Fake Match</button>
+                        <button type="button" className={"btn" + (mode === "remote" ? " btn-outline-primary active" : " border-secondary border-opacity-25")} onClick={() => setMode("remote")}>Remote Match</button>
+                    </div>
+                </div>
+            </div>
+            { mode === "normal" && <div className="form-text small">
+                Use our built-in match algorithm to emulate what would happen if you run this operations
+                against a real match server.
+            </div> }
+            { mode === "fake" && <>
+                <div className="form-text small">
+                    In this mode you can submit some patients you are looking to match and we will pretend
+                    that some of them have been successfully matched against our database, even though we
+                    don't really have any matching done.
+                </div>
+                <div className="my-4 row">
+                    <div className="col">
+                        <div className="d-flex justify-content-between">
+                            <label htmlFor="fakeMatches" className="text-primary-emphasis">Fake Matches</label>
+                            <span>{fakeMatches}%</span>
+                        </div>
+                        <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => setFakeMatches(e.target.valueAsNumber)} min={0} max={100} step={10} />
+                    </div>
+                    <div className="col">
+                        <div className="d-flex justify-content-between">
+                            <label htmlFor="fakeDuplicates" className="text-primary-emphasis">Fake Duplicates</label>
+                            <span>{duplicates}%</span>
+                        </div>
+                        <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => setDuplicates(e.target.valueAsNumber)} min={0} max={50} step={5} />
+                    </div>
+                </div>
+            </> }
+            { mode === "remote" && <>
+                <div className="form-text small">
+                    In this mode we will proxy the patients you are looking for to a
+                    remote FHIR server of your choosing. The remote FHIR server must
+                    support the <code>Patient/$match</code> operation.
+                </div>
+                <div className="my-4">
+                    <label htmlFor="err" className="form-label text-primary-emphasis">External Match Server</label>
+                    <input type="url" className="form-control" value={matchServer} onChange={e => setMatchServer(e.target.value)} name="url" />
                     <div className="form-text small">
                         If provided we will proxy match requests to this FHIR server. Enter the
                         full base URL of the FHIR server and we will append <code>Patient/$match</code> to it.
                     </div>
                 </div>
-                <div className="col">
-                    <label htmlFor="err" className="form-label">External Match Server Access Token</label>
-                    <input type="text" className="form-control" value={matchToken} onChange={e => setMatchToken(e.target.value)} />
-                    <div className="form-text small">
-                        If provided, this token will be sent using the authorization header like
-                        so: <code>Bearer your-token</code>. Keep this empty for
-                        public servers which do not require authentication.
-                    </div>
+                <div className="d-flex justify-content-between align-items-center flex-wrap my-2 border-bottom border-2 py-1">
+                    <label className="text-primary-emphasis">HTTP Headers</label>
+                    <button className="btn btn-sm border-success text-success border-opacity-25 btn-light" type="button" onClick={() => setHeaders([ ...headers, ["", ""] ])}>
+                        <i className="bi bi-plus-circle" /> Add Header
+                    </button>
                 </div>
-            </div>
-            <div className="my-4 bg-primary-subtle" style={{ height: 2 }} />
+                <div className="form-text small mb-1">
+                    As an example, if you have an access token and want to
+                    use it to authenticate add an <code>authorization</code> header
+                    with value of "<code>Bearer {"{"}your-token{"}"}</code>".
+                </div>
+                <ParamList params={headers} onChange={headers => setHeaders([...headers])}/>
+            </> }
+            <div className="my-4 mt-5 bg-primary-subtle" style={{ height: 2 }} />
             <div className="mb-3 text-center">
                 <button type="submit" className="btn btn-primary px-4 bg-gradient" disabled={cannotSubmit}>Register</button>
             </div>
-            <div className="d-flex justify-content-between mb-1">
-                <b>Your Client ID:</b>
-                <span
-                    className="copy-btn"
-                    onClick={() => copy(assertion)}
-                >Copy <i className="bi bi-clipboard-check" /></span>
-            </div>
-            <textarea className="form-control text-primary-emphasis form-control-sm" rows={4} defaultValue={assertion} readOnly/>
+            { !!assertion && <>
+                <div className="d-flex justify-content-between mb-1">
+                    <b className="text-primary-emphasis">Your Client ID:</b>
+                    <span
+                        className="copy-btn"
+                        onClick={() => copy(assertion)}
+                    >Copy <i className="bi bi-clipboard-check" /></span>
+                </div>
+                <textarea className="form-control text-primary-emphasis form-control-sm" rows={4} defaultValue={assertion} readOnly/>
+            </> }
         </form>
     )
 }

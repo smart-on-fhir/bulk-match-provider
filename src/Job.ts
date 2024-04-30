@@ -38,7 +38,7 @@ interface JobOptions {
 
     matchServer: string
         
-    matchToken: string
+    matchHeaders: [string, string][]
 }
 
 export default class Job
@@ -67,8 +67,8 @@ export default class Job
     public error: string = "";
 
     protected matchServer: string = "";
-    
-    protected matchToken: string = "";
+
+    protected destroyed = false;
 
     protected options: JobOptions = {
         authenticated: false,
@@ -76,7 +76,7 @@ export default class Job
         percentFakeDuplicates: 0,
         simulatedError: "",
         matchServer: "",
-        matchToken: ""
+        matchHeaders: []
     };
 
     public manifest: app.MatchManifest = {
@@ -144,6 +144,7 @@ export default class Job
         this.abort()
         const release = await Job.lock(this.id)
         await rm(this.path, { recursive: true, maxRetries: 10, force: true })
+        this.destroyed = true
         await release()
         delete Job.instances[this.id]
         return this;
