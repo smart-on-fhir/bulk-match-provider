@@ -212,22 +212,26 @@ export default class BulkMatchClient
         // const json = await res.json()
     }
 
-    async waitForCompletion(frequency?: number, exitOn429 = false)
+    async waitForCompletion(frequency?: number, exitOn429 = false): Promise<MatchManifest>
     {
+        if (this._manifest) {
+            return this._manifest
+        }
+
         let res: Response;
         do {
             res = await this.request(this.statusLocation)
             if (res.status === 200) {
                 this._manifest = await res.json()
-                return this._manifest
+                return this._manifest as MatchManifest
             }
             else if (res.status === 429) {
                 const operationOutcome: OperationOutcome = await res.json()
                 if (exitOn429 || operationOutcome.issue[0].severity === "fatal") {
-                    return operationOutcome // exit if terminated
+                    throw new Error(operationOutcome.issue[0].diagnostics)
                 }
                 const f = frequency || +res.headers.get("retry-after")! * 1000
-                await wait(Math.max(f, 100))
+                await wait(Math.max(f, 10))
             }
             else if (res.status === 202) {
                 // console.log({
@@ -236,10 +240,11 @@ export default class BulkMatchClient
                 //     loc: this.statusLocation
                 // })
                 const f = frequency || +res.headers.get("retry-after")! * 1000
-                await wait(Math.max(f, 100))
+                await wait(Math.max(f, 10))
             }
             else {
-                return await res.json() // OperationOutcome
+                const oo: OperationOutcome = await res.json()
+                throw new Error(oo.issue[0].diagnostics)
             }
         } while (true);
     }

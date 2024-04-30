@@ -97,6 +97,88 @@ function expectOAuthError(json: any, {
     }
 }
 
+async function expectResult(client: BulkMatchClient, {
+    numberOfFiles,
+    numberOfBundles,
+    numberOfMatches = [],
+    percentFakeMatches,
+    percentFakeDuplicates
+} : {
+    numberOfFiles        ?: number
+    numberOfBundles      ?: number
+    numberOfMatches      ?: number[]
+    percentFakeMatches   ?: number
+    percentFakeDuplicates?: number
+}) {
+    const manifest = await client.waitForCompletion()
+
+    if (numberOfFiles || numberOfFiles === 0) {
+        assert.equal(
+            manifest.output.length,
+            numberOfFiles,
+            `Expected ${numberOfFiles} files`
+        )
+    }
+
+    if (percentFakeMatches) {
+        assert.equal(
+            manifest.extension?.percentFakeMatches,
+            percentFakeMatches,
+            "Expected the manifest to include percentFakeMatches extension"
+        )
+    }
+
+    if (percentFakeDuplicates) {
+        assert.equal(
+            manifest.extension?.percentFakeDuplicates,
+            percentFakeDuplicates,
+            "Expected the manifest to include percentFakeDuplicates extension"
+        )
+    }
+
+    let i = 0
+    let nBundles = 0
+    for (const entry of manifest.output) {
+        // console.log("======>", entry)
+        assert.equal(entry.type, "Bundle")
+        assert.equal(typeof entry.count, "number")
+        assert.equal(typeof entry.url, "string")
+
+        const data  = await client.download(i)
+        const lines = data.split(/\n/).filter(Boolean)
+
+        assert.equal(entry.count, lines.length, "entry.count must equal the number of ndjson lines")
+        // console.log(lines)
+        lines.forEach((line, y) => {
+            let bundle: Bundle;
+            assert.doesNotThrow(() => bundle = JSON.parse(line), `Line ${y + 1} of file ${i + 1} could not be parsed as JSON`)
+            // console.log(bundle!)
+            assert.equal(bundle!.resourceType, "Bundle")
+            assert.equal(bundle!.type, "searchset")
+            if (numberOfMatches[nBundles] || numberOfMatches[nBundles] === 0) {
+                assert.equal(
+                    bundle!.total,
+                    numberOfMatches[nBundles],
+                    `Expected bundle number ${nBundles + 1} to have 'total' of ${
+                    numberOfMatches[nBundles]} results but found ${bundle!.total}! Bundle:\n${JSON.stringify(bundle!, null, 4)}`
+                )
+            }
+            nBundles++
+        })
+
+        i++
+    }
+
+    if (numberOfBundles) {
+        assert.equal(
+            nBundles,
+            numberOfBundles,
+            `Expected total of ${numberOfBundles} bundles across all files bunt got ${nBundles}`
+        )
+    }
+}
+
+
 describe("API", () => {
 
     const mockServer = new MockServer("MockServer", true)
@@ -251,7 +333,9 @@ describe("API", () => {
                         accessTokensExpireIn: "22",
                         fakeMatches         : "33",
                         duplicates          : "44",
-                        err                 : "my-err"
+                        err                 : "my-err",
+                        matchServer         : "http://whatever.dev",
+                        matchHeaders        : '[["a-name","a-value"],["b-name","b-value"]]'
                     })
                 })
                 assert.equal(res.status, 200)
@@ -263,6 +347,8 @@ describe("API", () => {
                 assert.equal(token.fakeMatches, 33)
                 assert.equal(token.duplicates, 44)
                 assert.equal(token.err, "my-err")
+                assert.equal(token.matchServer, "http://whatever.dev")
+                assert.deepEqual(token.matchHeaders, [["a-name","a-value"],["b-name","b-value"]])
             })
         })
 
@@ -1009,7 +1095,7 @@ describe("API", () => {
         })
 
         it ("percentFakeMatches", async () => {
-            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 60 })
+            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 70 })
             const assertion = generateRegistrationToken({ clientId })
             const res1      = await requestAccessToken(assertion)
             const json1     = await res1.json()
@@ -1018,25 +1104,56 @@ describe("API", () => {
                 accessToken: json1.access_token
             })
 
-            const res = await client.kickOff({
+            await client.kickOff({
                 resource: [
-                    { resourceType: "Patient", id: "#1" },
-                    { resourceType: "Patient", id: "#2" },
-                    { resourceType: "Patient", id: "#3" },
-                ],
-                // headers: {
-                //     authorization: `Bearer ${json1.access_token}`
-                // }
+                    { resourceType: "Patient", id: "#1", name: [{ family: "Patient 1 Name" }] },
+                    { resourceType: "Patient", id: "#2", name: [{ family: "Patient 2 Name" }] },
+                    { resourceType: "Patient", id: "#3", name: [{ family: "Patient 3 Name" }] },
+                ]
             })
 
-            const result = await client.waitForCompletion()
-
-            // console.log(result, client)
-            assert.equal(result.extension.percentFakeMatches, 60)
+            await expectResult(client, {
+                numberOfFiles     : 2,
+                numberOfBundles   : 3,
+                percentFakeMatches: 70,
+                numberOfMatches   : [1, 1, 0]
+            })
         })
 
         it ("percentFakeMatches + count", async () => {
-            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 100 })
+            const clientId  = BulkMatchClient.register({
+                jwks: { keys: [ PUBLIC_KEY] },
+                fakeMatches: 100,
+                duplicates: 100
+            })
+            const assertion = generateRegistrationToken({ clientId })
+            const res1      = await requestAccessToken(assertion)
+            const json1     = await res1.json()
+            const client    = new BulkMatchClient({
+                baseUrl,
+                accessToken: json1.access_token
+            })
+
+            await client.kickOff({
+                resource: [
+                    { resourceType: "Patient", id: "#1", name: [{ family: "Patient 1 Name" }] },
+                    { resourceType: "Patient", id: "#2", name: [{ family: "Patient 2 Name" }] },
+                    { resourceType: "Patient", id: "#3", name: [{ family: "Patient 3 Name" }] },
+                ],
+                count: 2
+            })
+
+            await expectResult(client, {
+                numberOfFiles        : 2,
+                numberOfBundles      : 3,
+                percentFakeDuplicates: 100,
+                percentFakeMatches   : 100,
+                numberOfMatches      : [2, 2, 2]
+            })
+        })
+
+        it ("percentFakeMatches producing 0 results", async () => {
+            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 10 })
             const assertion = generateRegistrationToken({ clientId })
             const res1      = await requestAccessToken(assertion)
             const json1     = await res1.json()
@@ -1050,19 +1167,24 @@ describe("API", () => {
                     { resourceType: "Patient", id: "#1" },
                     { resourceType: "Patient", id: "#2" },
                     { resourceType: "Patient", id: "#3" },
-                ],
-                count: 2
+                ]
             })
 
-            const result = await client.waitForCompletion()
-
-            // console.log(result)
-            assert.equal(result.extension.percentFakeMatches, 100)
-            assert.equal(result.output.length, 2)
+            await expectResult(client, {
+                numberOfFiles        : 2,
+                numberOfBundles      : 0,
+                percentFakeMatches   : 10
+            })
         })
 
-        it ("percentFakeMatches producing 0 results", async () => {
-            const clientId  = BulkMatchClient.register({ jwks: { keys: [ PUBLIC_KEY] }, fakeMatches: 10 })
+        it ("percentFakeDuplicates", async () => {
+            const clientId  = BulkMatchClient.register({
+                jwks: {
+                    keys: [ PUBLIC_KEY]
+                },
+                fakeMatches: 100,
+                duplicates : 90
+            })
             const assertion = generateRegistrationToken({ clientId })
             const res1      = await requestAccessToken(assertion)
             const json1     = await res1.json()
@@ -1071,21 +1193,21 @@ describe("API", () => {
                 accessToken: json1.access_token
             })
 
-            const res = await client.kickOff({
+            await client.kickOff({
                 resource: [
-                    { resourceType: "Patient", id: "#1" },
-                    { resourceType: "Patient", id: "#2" },
-                    { resourceType: "Patient", id: "#3" },
-                ],
-                // headers: {
-                //     authorization: `Bearer ${json1.access_token}`
-                // }
+                    { resourceType: "Patient", id: "1", name: [{ family: "Patient 1 Name" }] },
+                    { resourceType: "Patient", id: "2", name: [{ family: "Patient 2 Name" }] },
+                    { resourceType: "Patient", id: "3", name: [{ family: "Patient 3 Name" }] },
+                ]
             })
 
-            const result = await client.waitForCompletion()
-
-            // console.log(result, client)
-            assert.equal(result.extension.percentFakeMatches, 10)
+            await expectResult(client, {
+                numberOfFiles        : 2,
+                numberOfBundles      : 3,
+                percentFakeMatches   : 100,
+                percentFakeDuplicates: 90,
+                numberOfMatches      : [2,2,2]
+            })
         })
 
         it ("Works", async () => {
@@ -1107,10 +1229,10 @@ describe("API", () => {
             
             const client = new BulkMatchClient({ baseUrl })
             
-            // We have 2 records for patients with such name and DOB, but with
-            // different phones. Normally we should get back 2 matches, but if
-            // onlySingleMatch if true we should only get the one with the
-            // matching phone
+            // We have multiple records for patients with such name and DOB, but
+            // with different phones. Normally we should get back all matches,
+            // but if onlySingleMatch is true we should only get the one with
+            // the matching phone
             await client.kickOff({
                 resource: [
                     {
@@ -1183,7 +1305,7 @@ describe("API", () => {
         })
 
         it ("onlySingleMatch + fakeMatches = pick the first input patient", async () => {
-            const client    = new BulkMatchClient({
+            const client = new BulkMatchClient({
                 baseUrl,
                 privateKey: PRIVATE_KEY,
                 registrationOptions: {
@@ -1213,17 +1335,12 @@ describe("API", () => {
                 onlySingleMatch: true
             })
 
-            
-            await client.waitForCompletion()
-            // console.log(client.manifest)
-            assert.equal(client.manifest.output.length, 1)
-            assert.equal(client.manifest.output[0].count, 1)
-
-            const bundle: Bundle = await client.download(0)
-            // console.log(JSON.stringify(bundle, null, 4))
-            assert.equal(bundle.total, 1)
-            assert.equal(bundle.entry?.length, 1)
-            assert.equal(bundle.entry![0].resource?.id, "1")
+            await expectResult(client, {
+                numberOfFiles        : 2,
+                numberOfBundles      : 3,
+                percentFakeMatches   : 67,
+                numberOfMatches      : [1,1,0]
+            })
         })
 
         it ("onlyCertainMatches", async () => {
@@ -1241,9 +1358,14 @@ describe("API", () => {
                 onlyCertainMatches: true
             })
 
-            await client.waitForCompletion()
-            assert.equal(client.manifest.output.length, 1)
-            assert.equal(client.manifest.output[0].count, 2)
+            // We have 3 patients with this name and DOB, but only 2 of them share
+            // the same SSN and MRN, therefore onlyCertainMatches should reduce
+            // our results to 2 matches into 1 bundle
+            await expectResult(client, {
+                numberOfFiles  : 1,
+                numberOfBundles: 1,
+                numberOfMatches: [2],
+            })
         })
 
         it ("onlyCertainMatches + onlySingleMatch when possible", async () => {
@@ -1284,16 +1406,18 @@ describe("API", () => {
                 onlyCertainMatches: true
             })
 
-            await client.waitForCompletion()
-            assert.equal(client.manifest.output.length, 1)
-            assert.equal(client.manifest.output[0].count, 0)
+            await expectResult(client, {
+                numberOfFiles  : 1,
+                numberOfBundles: 1,
+                numberOfMatches: [0],
+            })
         })
 
         it ("rejects if to many jobs are currently running", async () => {
             const { maxRunningJobs, jobThrottle } = config
             try {
                 config.maxRunningJobs = 1
-                config.jobThrottle    = 100
+                config.jobThrottle    = 300
                 const client = new BulkMatchClient({ baseUrl })
                 
                 const { status: status1 } = await client.kickOff({
@@ -1302,7 +1426,7 @@ describe("API", () => {
                         { resourceType: "Patient", id: "2" }
                     ]
                 })
-                assert.equal(Job.countRunningJobs(), 1)
+                assert.equal(Job.countRunningJobs(), 1, "After the first job is started expect a total of 1 jobs running")
                 assert.equal(status1, 202)
 
                 const { status: status2 } = await client.kickOff({
@@ -1311,7 +1435,7 @@ describe("API", () => {
                         { resourceType: "Patient", id: "2" }
                     ]
                 })
-                assert.equal(Job.countRunningJobs(), 1)
+                assert.equal(Job.countRunningJobs(), 1, "After the second job is started expect a total of 1 jobs running")
                 assert.equal(status2, 429)
             } finally {
                 config.maxRunningJobs = maxRunningJobs
@@ -1388,8 +1512,9 @@ describe("API", () => {
         })
 
         it ("Protects against too frequent requests", async () => {
-            const orig = config.retryAfter
-            config.retryAfter = 300
+            const { retryAfter, throttle } = config
+            config.retryAfter = 1600
+            config.throttle   = 100
             try {
                 const client = new BulkMatchClient({ baseUrl })
                 await client.kickOff({
@@ -1399,20 +1524,22 @@ describe("API", () => {
                         { resourceType: "Patient", id: "#3" },
                     ]
                 })
-                const res = await client.waitForCompletion(100, true)
-                // console.log(res)
-                expectOperationOutcome(res, {
-                    severity: 'warning',
-                    diagnostics: /^Too many requests made/
-                })
+                await assert.rejects(
+                    client.waitForCompletion(100, true),
+                    /Too many requests made/
+                )
+            } catch (ex) {
+                throw ex
             } finally {
-                config.retryAfter = orig
+                config.retryAfter = retryAfter
+                config.throttle   = throttle
             }
         })
 
         it ("Terminates the session after too many requests", async () => {
-            const orig = config.retryAfter
-            config.retryAfter = 500
+            const { retryAfter, throttle } = config
+            config.retryAfter = 2000
+            config.throttle   = 10
             try {
                 const client = new BulkMatchClient({ baseUrl })
                 await client.kickOff({
@@ -1420,16 +1547,22 @@ describe("API", () => {
                         { resourceType: "Patient", id: "#1" },
                         { resourceType: "Patient", id: "#2" },
                         { resourceType: "Patient", id: "#3" },
+                        { resourceType: "Patient", id: "#4" },
+                        { resourceType: "Patient", id: "#5" },
+                        { resourceType: "Patient", id: "#6" },
+                        { resourceType: "Patient", id: "#7" },
+                        { resourceType: "Patient", id: "#8" },
+                        { resourceType: "Patient", id: "#9" },
+                        { resourceType: "Patient", id: "#10" },
+                        { resourceType: "Patient", id: "#11" }
                     ]
                 })
-                const res = await client.waitForCompletion(100)
-                // console.log(res)
-                expectOperationOutcome(res, {
-                    severity: 'fatal',
-                    diagnostics: /Session terminated/
-                })
+                await assert.rejects(client.waitForCompletion(10), /Session terminated/)
+            } catch (ex) {
+                throw ex
             } finally {
-                config.retryAfter = orig
+                config.retryAfter = retryAfter
+                config.throttle   = throttle
             }
         })
 
@@ -1453,15 +1586,8 @@ describe("API", () => {
 
                 const res2 = await fetch(client.statusLocation)
                 assert.equal(res2.status, 202)
-                assert.equal(res2.headers.get("x-progress"), "0% complete")
+                assert.equal(res2.headers.get("x-progress"), "33% complete")
                 assert.equal(res2.headers.get("retry-after"), "1")
-
-                await wait(config.jobThrottle + 110 - config.throttle)
-
-                const res3 = await fetch(client.statusLocation)
-                assert.equal(res3.status, 202)
-                assert.equal(res3.headers.get("x-progress"), "33% complete")
-                assert.equal(res3.headers.get("retry-after"), "1")
 
                 await wait(config.jobThrottle + 110 - config.throttle)
 
@@ -1797,7 +1923,7 @@ describe("API", () => {
 
             mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
                 handler(req, res) {
-                    receivedHeader = req.headers.authentication + ""
+                    receivedHeader = req.headers.authorization + ""
                     res.json({
                         resourceType: "Bundle",
                         id: faker.string.uuid(),
@@ -1814,7 +1940,7 @@ describe("API", () => {
                 registrationOptions: {
                     jwks: { keys: [ PUBLIC_KEY ] },
                     matchServer: mockServer.baseUrl,
-                    matchToken
+                    matchHeaders: [["authorization", "Bearer " + matchToken]]
                 }
             })
 
@@ -1842,13 +1968,7 @@ describe("API", () => {
             })
 
             await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
-            const result = await client.waitForCompletion()
-            // console.log(result)
-            expectOperationOutcome(result, {
-                severity: 'error',
-                code: 'processing',
-                diagnostics: 'The remote server did not reply with a Bundle'
-            })
+            await assert.rejects(client.waitForCompletion(), /The remote server did not reply with a Bundle/)
         })
 
         it ("basic use", async () => {
@@ -1904,12 +2024,11 @@ describe("API", () => {
                 ]
             })
 
-            const result = await client.waitForCompletion()
-
-            // console.log(result)
-
-            assert.equal(result.output.length, 3)
-            assert.equal(result.output.every((x: any) => x.count === 2), true)
+            expectResult(client, {
+                numberOfFiles: 2,
+                numberOfBundles: 3,
+                numberOfMatches: [2, 1]
+            })
         })
     })
 
