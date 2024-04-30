@@ -3,13 +3,16 @@ import crypto                            from "crypto"
 import {existsSync, statSync }           from "fs"
 import { format }                        from "node:util"
 import { Patient }                       from "fhir/r4"
+import { faker }                         from "@faker-js/faker"
 import config                            from "./config"
 import { lock, wait }                    from "./lib"
 import { InternalServerError, NotFound } from "./HttpError"
 import { matchAll }                      from "./match"
 import patients                          from "./patients"
 import type app                          from "../index"
+import { InputPatient }                  from "../index"
 import {
+    appendFile,
     mkdir,
     readFile,
     rm,
@@ -69,6 +72,10 @@ export default class Job
     protected matchServer: string = "";
 
     protected destroyed = false;
+
+    private currentFilename = faker.string.uuid() + ".ndjson"
+    
+    private bundleCounter = 0
 
     protected options: JobOptions = {
         authenticated: false,
@@ -150,182 +157,152 @@ export default class Job
         return this;
     }
 
-    async fakeRun(params: app.MatchOperationParams)
-    {
-        const { count, resource, onlySingleMatch } = params
+    /* If the limit is up to 3 bundles per file:
+     * 
+     * FILE 1
+     *     BUNDLE
+     *         Patient 1 - result 1
+     *         Patient 1 - result 2
+     *     BUNDLE
+     *         Patient 2 - result 1
+     *         Patient 2 - result 2
+     *         Patient 2 - result 3
+     *     BUNDLE
+     *         Patient 3 - OperationOutcome
+     * FILE 2
+     *     BUNDLE
+     *         Patient 4 - empty result
+     *     BUNDLE
+     *         Patient 5 - OperationOutcome
+     *     BUNDLE
+     *         Patient 6 - result 1
+     *         Patient 6 - result 1
+     */
 
-        const generateItem = async (result: Patient, total: number) => {
-            const bundle: fhir4.Bundle = {
-                resourceType: "Bundle",
-                type : "searchset",
-                total,
-                meta: {
-                    extension: [{
-                        url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
-                        valueReference: {
-                            reference: `Patient/${result.id}`
-                        }
-                    }]
-                },
-                entry: [
-                    {
-                        fullUrl: `Patient/${result.id}`,
-                        resource: result,
-                        search: {
-                            extension: [{
-                                url: "http://hl7.org/fhir/StructureDefinition/match-grade",
-                                valueCode: "certain"
-                            }],
-                            mode : "match",
-                            score: 1
-                        }
-                    }
-                ]
-            };
-
-            if (!this.abortController.signal.aborted && !existsSync(this.path + "/files")) {
-                await mkdir(this.path + "/files")
+    private async saveBundle(bundle: fhir4.Bundle) {
+        if (!this.abortController.signal.aborted && !this.destroyed) {
+            if (!existsSync(this.path + "/files")) {
+                await mkdir(this.path + "/files", { recursive: true })
             }
-
-            await writeFile(
-                Path.join(this.path, "/files/" + result.id + `-patient-matches.ndjson`),
+            await appendFile(
+                Path.join(this.path, "/files/" + this.currentFilename),
                 JSON.stringify(bundle) + "\n",
-                { flag: "w+", encoding: "utf8", signal: this.abortController.signal }
+                "utf8"
             );
-
-            this.updateManifest({
-                output: [
-                    ...this.manifest.output,
-                    {
-                        type : "Bundle",
-                        count: 1,
-                        url  : this.baseUrl + "/jobs/" + this.id + "/files/" + result.id + `-patient-matches.ndjson`
-                    }
-                ]
-            })
+            this.bundleCounter++
         }
-
-        const resources = resource
-        let n = Math.floor(resources.length / 100 * this.options.percentFakeMatches)
-        if (count) {
-            n = Math.min(n, count)
-        }
-
-        // If percentFakeMatches produced 0 matches
-        if (n < 1) {
-            this.updateManifest({ output: [] })
-            this._percentage = 100
-            return await this.save("Save on no match")
-        }
-
-        const results = resources
-            .map(r => r.resource as Patient)
-            .sort((a, b) => a!.id!.localeCompare(b!.id!))
-            .slice(0, n)
-
-        if (onlySingleMatch) {
-            const release = await Job.lock(this.id)
-            await generateItem(results[0] as Patient, 1)
-            await release()
-        } else {
-
-            let i = 0
-            while (i < n) {
-                const release = await Job.lock(this.id)
-                const result = results[i]
-                await generateItem(result as Patient, results.length)
-                this._percentage = Math.round(i / n * 100)
-                await this.save("save " + i, true)
-                i++
-                await release()
-                await wait(config.jobThrottle, { signal: this.abortController.signal })
-            }
-        }
-        this._percentage = 100
-        await this.save("completed fakeRun")
     }
 
-    async run(params: app.MatchOperationParams) {
-        const { onlyCertainMatches, onlySingleMatch, resource } = params
-        const count = params.count || Infinity
-        if (this.options.percentFakeMatches) {
-            return this.fakeRun(params)
-        }
-        try {
-            const inputPatients = resource.map(r => r.resource as fhir4.Patient)
-            let i = 0
-            for (const inputPatient of inputPatients) {
-                await wait(config.jobThrottle, { signal: this.abortController.signal })
-                await this.matchOne(inputPatient, count, onlySingleMatch, onlyCertainMatches)
-                this._percentage = Math.floor(++i / inputPatients.length * 100)
-                await this.save("completed match " + i)
-            }
-            this.completedAt = Date.now()
-        } catch (error) {
-            this.error = (error as Error).message
-        }
-        await this.save("completed run")
-    }
-
-    async matchOne(input: Partial<fhir4.Patient>, count: number, onlySingleMatch = false, onlyCertainMatches = false) {
-        let bundle: fhir4.Bundle;
-        
-        if (this.options.matchServer) {
-            bundle = await this.matchOneViaProxy({
-                patient: input,
-                onlyCertainMatches,
-                count
-            })
-        } else {
-            const result = matchAll(input, {
-                dataSet: patients,
-                baseUrl: this.baseUrl,
-                limit  : count,
-                onlySingleMatch,
-                onlyCertainMatches
-            })
-            bundle = {
-                resourceType: "Bundle",
-                type : "searchset",
-                total: result.length,
-                meta : {
-                    extension: [{
-                        url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
-                        valueReference: {
-                            reference: `Patient/${input.id}`
-                        }
-                    }]
-                },
-                entry: result
-            };
-        }
-
-
-        if (!this.abortController.signal.aborted && !existsSync(this.path + "/files")) {
-            await mkdir(this.path + "/files")
-        }
-        await writeFile(
-            Path.join(this.path, "/files/" + input.id + `-patient-matches.ndjson`),
-            JSON.stringify(bundle) + "\n",
-            { flag: "w+", encoding: "utf8", signal: this.abortController.signal }
-        );
+    private commitFile() {
         this.updateManifest({
             output: [
                 ...this.manifest.output,
                 {
                     type : "Bundle",
-                    count: bundle.entry!.length,
-                    url  : this.baseUrl + "/jobs/" + this.id + "/files/" + input.id + `-patient-matches.ndjson`
+                    count: this.bundleCounter,
+                    url  : this.baseUrl + "/jobs/" + this.id + "/files/" + this.currentFilename
                 }
             ]
         })
+        this.currentFilename = faker.string.uuid() + ".ndjson"
+        this.bundleCounter   = 0
     }
 
-    async matchOneViaProxy({ patient, onlyCertainMatches, count }: {
-        patient: Partial<fhir4.Patient>
-        onlyCertainMatches: boolean
-        count: number
-    }) {
+    private async matchOneInputPatient(
+        patient: InputPatient,
+        params : app.MatchOperationParams,
+        index  : number,
+        all    : InputPatient[]
+    ): Promise<fhir4.Bundle> {
+        
+        // Start with an empty bundle
+        const bundle = this.createBundleForInputPatient(patient)
+
+        const count = params.count || config.maxMatches
+
+        // Fake mode -----------------------------------------------------------
+        if (this.options.percentFakeMatches) {
+            const results = params.resource.map(r => r.resource as Patient).sort((a, b) => a!.id!.localeCompare(b!.id!))
+
+            const total           = results.length
+            const nFakeMatches    = Math.floor(total / 100 * this.options.percentFakeMatches)
+            const nFakeDuplicates = Math.floor(nFakeMatches / 100 * this.options.percentFakeDuplicates)
+            const shouldMatch     = params.onlySingleMatch && index === 0 || index < nFakeMatches
+            const shouldDuplicate = nFakeDuplicates > 0 && index <= nFakeDuplicates
+            // console.log(index, nFakeMatches, nFakeDuplicates, total, shouldMatch, shouldDuplicate)
+            const entries         = await this.matchOneInputPatientFake(patient, shouldMatch, shouldDuplicate)
+            bundle.entry          = count && isFinite(count) ? entries.slice(0, count) : entries
+            bundle.total          = bundle.entry.length
+        }
+
+        // Remote mode ---------------------------------------------------------
+        else if (this.options.matchServer) {
+            const entries = await this.matchOneInputPatientRemote(patient, params)
+            bundle.entry  = entries
+            bundle.total  = entries.length
+        }
+
+        // Normal mode ---------------------------------------------------------
+        else {
+            const entries = matchAll(patient, {
+                dataSet           : patients,
+                baseUrl           : this.baseUrl,
+                limit             : count,
+                onlySingleMatch   : params.onlySingleMatch,
+                onlyCertainMatches: params.onlyCertainMatches
+            })
+            
+            bundle.entry  = entries || []
+            bundle.total  = bundle.entry.length
+        }
+
+        // Append bundle to the current output file
+        await this.saveBundle(bundle)
+
+        // If the result number exceeds the maxResultsPerBundle threshold of it this is the last result
+        if (this.bundleCounter >= config.maxResultsPerBundle || index >= all.length - 1) {
+            this.commitFile()
+        }
+
+        return bundle
+    }
+
+    private async matchOneInputPatientFake(patient: InputPatient, shouldMatch: boolean, shouldDuplicate: boolean): Promise<fhir4.BundleEntry<fhir4.FhirResource>[]> {
+        const out: fhir4.BundleEntry<fhir4.FhirResource>[] = []
+
+        if (shouldMatch) {
+            out.push({
+                fullUrl: `Patient/${patient.id}`,
+                resource: patient,
+                search: {
+                    extension: [{
+                        url: "http://hl7.org/fhir/StructureDefinition/match-grade",
+                        valueCode: "certain"
+                    }],
+                    mode : "match",
+                    score: 1
+                }
+            })
+        }
+
+        if (shouldDuplicate) {
+            out.push({
+                fullUrl: `Patient/${patient.id}`,
+                resource: { ...patient, name: [{ ...patient.name![0], family: patient.name![0].family + " (duplicate)" }] },
+                search: {
+                    extension: [{
+                        url: "http://hl7.org/fhir/StructureDefinition/match-grade",
+                        valueCode: "certain"
+                    }],
+                    mode : "match",
+                    score: 1
+                }
+            })
+        }
+        return out
+    }
+
+    private async matchOneInputPatientRemote(patient: InputPatient, params: app.MatchOperationParams): Promise<fhir4.BundleEntry<fhir4.FhirResource>[]> {
         const body: fhir4.Parameters = {
             resourceType: "Parameters",
             id: "example",
@@ -336,15 +313,15 @@ export default class Job
                 },
                 {
                     name: "onlyCertainMatches",
-                    valueBoolean: onlyCertainMatches
+                    valueBoolean: params.onlyCertainMatches
                 }
             ]
         }
 
-        if (count) {
+        if (params.count) {
             body.parameter?.push({
                 name: "count",
-                valueInteger: count
+                valueInteger: params.count
             })
         }
 
@@ -354,12 +331,11 @@ export default class Job
             method : "POST",
             body: JSON.stringify(body),
             signal: this.abortController.signal,
-            // @ts-ignore
-            headers: {
-                "Content-Type": "application/json",
-                accept: "application/fhir+json",
-                authentication: this.options.matchToken ? `Bearer ${this.options.matchToken}` : undefined
-            }
+            headers: [
+                ["Content-Type", "application/json"],
+                ["accept", "application/fhir+json"],
+                ...this.options.matchHeaders
+            ]
         })
 
         const json = await res.json()
@@ -368,7 +344,45 @@ export default class Job
             throw new Error('The remote server did not reply with a Bundle')
         }
 
-        return json
+        return json.entry
+    }
+    
+    private createBundleForInputPatient(patient: InputPatient): fhir4.Bundle {
+        return {
+            resourceType: "Bundle",
+            type : "searchset",
+            total: 0,
+            meta : {
+                extension: [{
+                    url: "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource",
+                    valueReference: {
+                        reference: `Patient/${patient.id}`
+                    }
+                }]
+            },
+            entry: []
+        }
+    }
+
+    async run(params: app.MatchOperationParams) {
+        const inputPatients = params.resource.map(r => r.resource as InputPatient)
+        let i = 0
+        for (const inputPatient of inputPatients) {
+            const release = await Job.lock(this.id)
+            try {
+                await wait(config.jobThrottle, { signal: this.abortController.signal })
+                await this.matchOneInputPatient(inputPatient, params, i, inputPatients)
+            } catch (ex) {
+                this.error = (ex as Error).message
+            } finally {
+                this._percentage = Math.floor(++i / inputPatients.length * 100)
+                await this.save("completed match " + i, true)
+                await release()
+                await wait(100, { signal: this.abortController.signal })
+            }
+        }
+        this.completedAt = Date.now()
+        await this.save("completed run")
     }
 
     public updateManifest(data: Partial<app.MatchManifest>) {

@@ -102,7 +102,7 @@ export function matchAll(input: Partial<fhir4.Patient>, {
             return []
         }
 
-        return [matches[0]]
+        return matches.length ? [matches[0]] : []
     }
     
     return matches

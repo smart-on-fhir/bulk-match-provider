@@ -57,5 +57,8 @@ export default {
 
     // If we reach this number more jobs cannot be started and clients will be
     // required to retry later after some jobs have hopefully completed
-    maxRunningJobs: uInt(env.MAX_RUNNING_JOBS, 100)
+    maxRunningJobs: uInt(env.MAX_RUNNING_JOBS, 100),
+
+    // Tests depend on this being set to 2, but is not a practical value otherwise
+    maxResultsPerBundle: env.NODE_ENV === "test" ? 2 : 100
 }
