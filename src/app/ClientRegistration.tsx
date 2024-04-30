@@ -260,7 +260,7 @@ export default function ClientRegistration() {
                 </div>
                 <div className="my-4">
                     <label htmlFor="err" className="form-label text-primary-emphasis">External Match Server</label>
-                    <input type="url" className="form-control" value={matchServer} onChange={e => setMatchServer(e.target.value)} name="url" />
+                    <input type="url" className="form-control" value={matchServer} onChange={e => setMatchServer(e.target.value)} name="url" required />
                     <div className="form-text small">
                         If provided we will proxy match requests to this FHIR server. Enter the
                         full base URL of the FHIR server and we will append <code>Patient/$match</code> to it.
@@ -291,7 +291,7 @@ export default function ClientRegistration() {
                         onClick={() => copy(assertion)}
                     >Copy <i className="bi bi-clipboard-check" /></span>
                 </div>
-                <textarea className="form-control text-primary-emphasis form-control-sm" rows={4} defaultValue={assertion} readOnly/>
+                <textarea className="form-control text-primary-emphasis form-control-sm" rows={4} value={assertion} readOnly/>
             </> }
         </form>
     )

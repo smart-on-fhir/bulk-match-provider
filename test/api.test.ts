@@ -112,6 +112,8 @@ async function expectResult(client: BulkMatchClient, {
 }) {
     const manifest = await client.waitForCompletion()
 
+    // console.log("manifest ======>", manifest)
+
     if (numberOfFiles || numberOfFiles === 0) {
         assert.equal(
             manifest.output.length,
@@ -139,7 +141,7 @@ async function expectResult(client: BulkMatchClient, {
     let i = 0
     let nBundles = 0
     for (const entry of manifest.output) {
-        // console.log("======>", entry)
+        // console.log("manifest.output entry ======>", entry)
         assert.equal(entry.type, "Bundle")
         assert.equal(typeof entry.count, "number")
         assert.equal(typeof entry.url, "string")
@@ -2024,11 +2026,37 @@ describe("API", () => {
                 ]
             })
 
-            expectResult(client, {
+            await expectResult(client, {
                 numberOfFiles: 2,
                 numberOfBundles: 3,
-                numberOfMatches: [2, 1]
+                numberOfMatches: [2, 2, 2]
             })
+
+            const txt1   = await client.download(0)
+            const txt2   = await client.download(1)
+            const bundles = txt1.split(/\n/).filter(Boolean).concat(txt2.split(/\n/).filter(Boolean)).map(l => JSON.parse(l))
+
+            // console.log(bundles)
+
+            assert.equal(bundles[0].total, 2)
+            assert.equal(
+                bundles[0].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+                `Patient/#1`
+            )
+            
+            
+            assert.equal(bundles[1].total, 2)
+            assert.equal(
+                bundles[1].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+                `Patient/#2`
+            )
+
+
+            assert.equal(bundles[2].total, 2)
+            assert.equal(
+                bundles[2].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+                `Patient/#3`
+            )
         })
     })
 
