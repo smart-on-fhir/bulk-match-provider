@@ -2060,4 +2060,41 @@ describe("API", () => {
         })
     })
 
+    it ("Can simulate match_error errors", async () => {
+        const client = new BulkMatchClient({
+            baseUrl,
+            privateKey: PRIVATE_KEY,
+            registrationOptions: {
+                jwks: { keys: [ PUBLIC_KEY ] },
+                err: "match_error",
+                fakeMatches: 100
+            }
+        })
+
+        await client.kickOff({
+            resource: [
+                { resourceType: "Patient", id: "1", name: [{ family: "Patient 1 Name" }] },
+                { resourceType: "Patient", id: "2", name: [{ family: "Patient 2 Name" }] }
+            ],
+            count: 100
+        })
+
+        await expectResult(client, {
+            numberOfFiles     : 1,
+            numberOfBundles   : 2,
+            percentFakeMatches: 100,
+            numberOfMatches   : [2, 2]
+        })
+
+        const f = await client.download(0)
+        const l = f.split(/\n/).filter(Boolean)
+        const j = JSON.parse(l[0])
+        assert.equal(j.entry[0].resource.resourceType, "Patient")
+
+        expectOperationOutcome(j.entry[1].resource, {
+            severity   : "error",
+            diagnostics: "Match failed (simulated error)"
+        })
+    })
+
 })

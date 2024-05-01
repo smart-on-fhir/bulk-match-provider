@@ -256,6 +256,15 @@ export default class Job
             bundle.total  = bundle.entry.length
         }
 
+        // Append ene simulated match error if needed
+        if (this.options.simulatedError === "match_error") {
+            bundle.total = bundle.entry.push({
+                resource: createOperationOutcome("Match failed (simulated error)", {
+                    severity: "error"
+                })
+            })
+        }
+
         // Append bundle to the current output file
         await this.saveBundle(bundle)
 
