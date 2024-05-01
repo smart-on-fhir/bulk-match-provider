@@ -1947,8 +1947,7 @@ describe("API", () => {
             })
 
             await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
-            await client.waitForCompletion()
-
+            await wait(600)
             assert.equal(receivedHeader, "Bearer " + matchToken)
         })
 
@@ -2023,7 +2022,8 @@ describe("API", () => {
                     { resourceType: "Patient", id: "#1" },
                     { resourceType: "Patient", id: "#2" },
                     { resourceType: "Patient", id: "#3" },
-                ]
+                ],
+                count: 100
             })
 
             await expectResult(client, {

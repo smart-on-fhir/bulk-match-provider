@@ -95,7 +95,7 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
     }
     
     /* istanbul ignore next */
-    if (process.env.NODE_ENV !== "test") console.error(error);
+    if (process.env.NODE_ENV !== "test") console.dir(error, { depth: 10 });
 
     res.status(error.statusCode).json(createOperationOutcome(error.message, {
         issueCode: error.statusCode

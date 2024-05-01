@@ -19,12 +19,7 @@ export default {
     maxAccessTokenLifetime: uInt(env.MAX_ACCESS_TOKEN_LIFETIME, 60),
 
     // Accept JWKs using the following algorithms
-    supportedAlgorithms: [
-        // "HS256", "HS384", "HS512",
-        "RS256", "RS384", "RS512",
-        "ES256", "ES384", "ES512",
-        // "PS256", "PS384", "PS512",
-    ],
+    supportedAlgorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
 
     // Keep jobs for how long (minutes since creation)?
     jobMaxLifetimeMinutes: uInt(env.JOB_MAX_LIFETIME_MINUTES, 60),
@@ -50,6 +45,7 @@ export default {
     // a retry delay (in milliseconds) for the status endpoint
     retryAfter: 2000,
 
+    // Throttle all http responses (mostly useful fir development/testing)
     throttle: uInt(env.THROTTLE, 0),
 
     // Limit the maximum number of records to return per resource
