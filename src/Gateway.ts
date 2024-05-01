@@ -65,6 +65,17 @@ export async function checkStatus(req: app.Request, res: Response) {
     }
 
     if (job.percentage === 100) {
+        
+        if (job.successScore < config.successThreshold) {
+            await job.destroy()
+            return res.status(500).json(createOperationOutcome(
+                `Match job failed because less than ${
+                    Math.round(config.successThreshold * 100)
+                }% of the matches ran successfully`,
+                { severity: "error" }
+            ))
+        }
+
         return res.setHeader(
             "Expires",
             new Date(job.completedAt + config.completedJobLifetimeMinutes * 60_000).toUTCString()

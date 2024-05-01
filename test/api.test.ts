@@ -2097,4 +2097,28 @@ describe("API", () => {
         })
     })
 
+    it ("Fails if below the success threshold", async () => {
+        const client = new BulkMatchClient({
+            baseUrl,
+            privateKey: PRIVATE_KEY,
+            registrationOptions: {
+                jwks: { keys: [ PUBLIC_KEY ] },
+                err: "match_error",
+                fakeMatches: 10
+            }
+        })
+
+        await client.kickOff({
+            resource: [
+                { resourceType: "Patient", id: "1", name: [{ family: "Patient 1 Name" }] },
+                { resourceType: "Patient", id: "2", name: [{ family: "Patient 2 Name" }] },
+                { resourceType: "Patient", id: "2", name: [{ family: "Patient 2 Name" }] }
+            ]
+        })
+
+        await assert.rejects(
+            client.waitForCompletion(),
+            /Match job failed because less than \d+% of the matches ran successfully/
+        )
+    })
 })

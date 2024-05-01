@@ -56,5 +56,11 @@ export default {
     maxRunningJobs: uInt(env.MAX_RUNNING_JOBS, 100),
 
     // Tests depend on this being set to 2, but is not a practical value otherwise
-    maxResultsPerBundle: env.NODE_ENV === "test" ? 2 : 100
+    maxResultsPerBundle: env.NODE_ENV === "test" ? 2 : 100,
+
+    // A number between 0 and 1 representing the ratio between Patient and
+    // OperationOutcome throughout the entire job output. If the result is less
+    // than this number clients will get an error instead of a manifest from the
+    // status endpoint
+    successThreshold: 0.5
 }

@@ -77,6 +77,10 @@ export default class Job
     
     private bundleCounter = 0
 
+    private matchResultPatientCount = 0
+
+    private matchResultOperationOutcomeCount = 0
+
     protected options: JobOptions = {
         authenticated: false,
         percentFakeMatches: 0,
@@ -141,6 +145,12 @@ export default class Job
 
     public get percentage() {
         return this._percentage
+    }
+
+    public get successScore() {
+        const total = this.matchResultPatientCount + this.matchResultOperationOutcomeCount
+        const score = (this.matchResultPatientCount || 1) / (total || 1)
+        return score
     }
 
     public abort() {
@@ -264,6 +274,15 @@ export default class Job
                 })
             })
         }
+
+        // Count the number of successful matches and the OperationOutcomes
+        bundle.entry.forEach(e => {
+            if (e.resource?.resourceType === "Patient") {
+                this.matchResultPatientCount++
+            } else if (e.resource?.resourceType === "OperationOutcome") {
+                this.matchResultOperationOutcomeCount++
+            }
+        })
 
         // Append bundle to the current output file
         await this.saveBundle(bundle)
