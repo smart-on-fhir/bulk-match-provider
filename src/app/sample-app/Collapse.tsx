@@ -9,7 +9,7 @@ export default function Collapse({ children, header, open }: { children?: ReactN
 
     return (
         <div>
-            <div className="d-flex align-items-baseline mb-1" style={{ cursor: "pointer", wordBreak: "break-all" }} onClick={() => setIsOpen(!isOpen)}>
+            <div className="d-flex align-items-baseline" style={{ cursor: "pointer", wordBreak: "break-all" }} onClick={() => setIsOpen(!isOpen)}>
                 <i className={ isOpen ? "bi bi-caret-down-fill me-1" : "bi bi-caret-right-fill me-1" } />
                 { header }
             </div>

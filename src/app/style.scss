@@ -10,3 +10,12 @@
         transition: all 0.01s linear 0.01s;
     }
 }
+
+label {
+    font-weight: 600;
+    color: var(--bs-primary-text-emphasis);
+}
+
+.form-text {
+    font-weight: normal;
+}

@@ -220,9 +220,9 @@ export default function ClientRegistration() {
                 <div className="col">
                     <label className="form-label text-primary-emphasis">Match Mode</label>
                     <div className="btn-group w-100">
-                        <button type="button" className={"btn" + (mode === "normal" ? " btn-outline-primary active" : " border-secondary border-opacity-25")} onClick={() => setMode("normal")}>Built-in Match</button>
-                        <button type="button" className={"btn" + (mode === "fake"   ? " btn-outline-primary active" : " border-secondary border-opacity-25")} onClick={() => setMode("fake"  )}>Fake Match</button>
-                        <button type="button" className={"btn" + (mode === "remote" ? " btn-outline-primary active" : " border-secondary border-opacity-25")} onClick={() => setMode("remote")}>Remote Match</button>
+                        <button type="button" className={"btn" + (mode === "normal" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("normal")}>Built-in Match</button>
+                        <button type="button" className={"btn" + (mode === "fake"   ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("fake"  )}>Fake Match</button>
+                        <button type="button" className={"btn" + (mode === "remote" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("remote")}>Remote Match</button>
                     </div>
                 </div>
             </div>
