@@ -2,7 +2,7 @@ import Path                                   from "path"
 import crypto                                 from "crypto"
 import {existsSync, statSync }                from "fs"
 import { format }                             from "node:util"
-import { Patient }                            from "fhir/r4"
+import { Bundle, Patient }                    from "fhir/r4"
 import { faker }                              from "@faker-js/faker"
 import config                                 from "./config"
 import { createOperationOutcome, lock, wait } from "./lib"
@@ -275,6 +275,9 @@ export default class Job
             })
         }
 
+        // Patient records SHALL be ordered from most likely to least likely
+        Job.sortResultsBundle(bundle)
+
         // Count the number of successful matches and the OperationOutcomes
         bundle.entry.forEach(e => {
             if (e.resource?.resourceType === "Patient") {
@@ -509,6 +512,18 @@ export default class Job
 
     static async lock(id: string) {
         return await lock(Path.join(config.jobsDir, id))
+    }
+
+    static sortResultsBundle(bundle: Bundle) {
+        bundle.entry?.sort((a, b) => {
+            if (a.resource?.resourceType !== "Patient") {
+                return 1
+            }
+            if (b.resource?.resourceType !== "Patient") {
+                return -1
+            }
+            return (b.search?.score ?? 0) - (a.search?.score ?? 0)
+        })
     }
 }
 

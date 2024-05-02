@@ -1,5 +1,6 @@
 import assert            from "node:assert/strict"
 import { writeFileSync } from "node:fs"
+import { Bundle }        from "fhir/r4"
 import Job               from "../../src/Job"
 import "../init-tests"
 
@@ -68,6 +69,43 @@ describe("Job", () => {
         await Job.destroyIfNeeded(job.id)
 
         assert.equal(destroyCalled, true)
+    })
+
+    it ("sortResultsBundle", () => {
+        const bundle: Bundle = {
+            resourceType: "Bundle",
+            type: "searchset",
+            entry: [
+                { resource: { resourceType: "Patient", id: "1" }, search: { score: 0.4 } },
+                { resource: { resourceType: "Patient", id: "2" }, search: { score: 0.2 } },
+                { resource: { resourceType: "OperationOutcome", id: "3", issue: [] } },
+                { resource: { resourceType: "Patient", id: "4" }, search: { score: 0.8 } }
+            ]
+        }
+
+        Job.sortResultsBundle(bundle)
+        // console.dir(bundle, { depth: 10 })
+        assert.deepEqual(bundle, {
+            resourceType: 'Bundle',
+            type: 'searchset',
+            entry: [
+                {
+                    resource: { resourceType: 'Patient', id: '4' },
+                    search: { score: 0.8 }
+                },
+                {
+                    resource: { resourceType: 'Patient', id: '1' },
+                    search: { score: 0.4 }
+                },
+                {
+                    resource: { resourceType: 'Patient', id: '2' },
+                    search: { score: 0.2 }
+                },
+                {
+                    resource: { resourceType: 'OperationOutcome', id: '3', issue: [] }
+                }
+            ]
+        })
     })
 
 })
