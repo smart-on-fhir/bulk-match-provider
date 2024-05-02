@@ -28,7 +28,6 @@
     "sample-app": {
       "source": "./src/app/sample-app/index.html",
       "distDir": "./dist/sample-app",
-      "publicUrl": "/",
       "context": "browser",
       "outputFormat": "global",
       "isLibrary": false
