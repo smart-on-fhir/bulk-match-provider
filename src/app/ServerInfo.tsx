@@ -25,6 +25,34 @@ export default function ServerInfo() {
 
     return (
         <div className="py-4">
+            <h1>About Bulk Match</h1>
+            <hr className="mt-1" />
+            <p>
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin ut
+                nulla vitae nunc feugiat sollicitudin. Integer nec nibh dictum,
+                fringilla ligula eu, blandit ligula. Sed porta elit in sollicitudin
+                ultricies. Vestibulum ante ipsum primis in faucibus orci luctus et
+                ultrices posuere cubilia curae; In arcu elit, ultrices auctor lacus
+                ac, rutrum laoreet felis. Curabitur dictum, urna sit amet condimentum
+                vulputate, arcu leo sodales nisl, sit amet pellentesque leo justo
+                non mi. Suspendisse vulputate pretium risus, at placerat magna
+                ornare ut. Vivamus tincidunt lacus at tempus consequat. Donec
+                efficitur id tellus vel sodales. Curabitur eget ultricies nibh,
+                sit amet efficitur nisi. Quisque maximus varius justo.
+            </p>
+            <p>
+                Praesent in metus id lorem scelerisque aliquet eu sed velit.
+                Vestibulum hendrerit mauris dapibus eros dapibus consectetur.
+                Nunc non elit et felis rutrum posuere nec a lectus. Suspendisse
+                congue id felis a fringilla. Donec in sapien quis magna sodales
+                volutpat. Nulla facilisi. Duis sed lobortis lectus. Cras lectus
+                felis, consequat in nisi placerat, molestie tincidunt sem. Nunc
+                vel purus elit. In rutrum suscipit metus, nec consectetur metus
+                porta eu. In posuere pellentesque rutrum. Morbi ultrices nisi purus.
+            </p>
+            <br />
+            <h3>Server Information</h3>
+            <hr className="mt-1" />
             <dl>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Bulk Patient Matching Endpoint</dt>
                 <dd className="mb-4">
