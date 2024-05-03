@@ -5,7 +5,7 @@ import "./style.scss"
 
 
 export default function App() {
-    const [tabIndex, setTabIndex] = useState(0);
+    const [tabIndex, setTabIndex] = useState(1);
     
     return (
         <>
@@ -31,10 +31,10 @@ export default function App() {
                         <ul className="navbar-nav me-auto"></ul>
                         <ul className="nav nav-pills">
                             <li className="nav-item">
-                                <a className={"nav-link" + (tabIndex === 0 ? " active bg-gradient" : "")} onClick={(e) => { e.preventDefault(); setTabIndex(0); }} href="#">Server Info</a>
+                                <a className={"nav-link" + (tabIndex === 1 ? " active bg-gradient" : "")} onClick={(e) => { e.preventDefault(); setTabIndex(1); }} href="#">Client Registration</a>
                             </li>
                             <li className="nav-item">
-                                <a className={"nav-link" + (tabIndex === 1 ? " active bg-gradient" : "")} onClick={(e) => { e.preventDefault(); setTabIndex(1); }} href="#">Client Registration</a>
+                                <a className={"nav-link" + (tabIndex === 0 ? " active bg-gradient" : "")} onClick={(e) => { e.preventDefault(); setTabIndex(0); }} href="#">Server Info</a>
                             </li>
                             <li className="nav-item">
                                 <a className="nav-link" href="./sample-app" target="_blank">
