@@ -25,33 +25,7 @@ export default function ServerInfo() {
 
     return (
         <div className="py-4">
-            <h1>About Bulk Match</h1>
-            <hr className="mt-1" />
-            <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin ut
-                nulla vitae nunc feugiat sollicitudin. Integer nec nibh dictum,
-                fringilla ligula eu, blandit ligula. Sed porta elit in sollicitudin
-                ultricies. Vestibulum ante ipsum primis in faucibus orci luctus et
-                ultrices posuere cubilia curae; In arcu elit, ultrices auctor lacus
-                ac, rutrum laoreet felis. Curabitur dictum, urna sit amet condimentum
-                vulputate, arcu leo sodales nisl, sit amet pellentesque leo justo
-                non mi. Suspendisse vulputate pretium risus, at placerat magna
-                ornare ut. Vivamus tincidunt lacus at tempus consequat. Donec
-                efficitur id tellus vel sodales. Curabitur eget ultricies nibh,
-                sit amet efficitur nisi. Quisque maximus varius justo.
-            </p>
-            <p>
-                Praesent in metus id lorem scelerisque aliquet eu sed velit.
-                Vestibulum hendrerit mauris dapibus eros dapibus consectetur.
-                Nunc non elit et felis rutrum posuere nec a lectus. Suspendisse
-                congue id felis a fringilla. Donec in sapien quis magna sodales
-                volutpat. Nulla facilisi. Duis sed lobortis lectus. Cras lectus
-                felis, consequat in nisi placerat, molestie tincidunt sem. Nunc
-                vel purus elit. In rutrum suscipit metus, nec consectetur metus
-                porta eu. In posuere pellentesque rutrum. Morbi ultrices nisi purus.
-            </p>
-            <br />
-            <h3>Server Information</h3>
+            <h2>Server Information</h2>
             <hr className="mt-1" />
             <dl>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Bulk Patient Matching Endpoint</dt>
@@ -73,14 +47,7 @@ export default function ServerInfo() {
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Well-Known SMART Configuration</dt>
                 <dd className="mb-4">
                     <code><NewTabLink href={ BACKEND_BASE_URL  + "/.well-known/smart-configuration" }/></code>
-                    <div className="small text-secondary">
-                        This is not a real FHIR server. It is only used to
-                        demonstrate how the bulk patient matching could work. As
-                        such, we only provide the minimal set of properties in
-                        our <code>.well-known/smart-configuration</code> so that
-                        a client is able to auto-discover authentication-related
-                        information.
-                    </div>
+                    <div className="small text-secondary"></div>
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Authentication Keys</dt>
                 <dd className="mb-4">
@@ -92,7 +59,7 @@ export default function ServerInfo() {
                         the process of connecting and testing!
                     </div>
                 </dd>
-                <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Supported Sign Algorithms</dt>
+                <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Supported Signing Algorithms</dt>
                 <dd className="mb-4">
                     { config.supportedAlgorithms.map((alg, i, all) => {
                         if (i === all.length - 1) {
@@ -114,22 +81,14 @@ export default function ServerInfo() {
                         </a>
                     </code>
                     <div className="small text-secondary">
-                        In case you need to look at the complete patients you are
-                        searching through, you can download them as ndjson file.
+                        Patients on the server that can be matched
                     </div>
                 </dd>
-                {/* <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />List Current Match Jobs</dt>
-                <dd className="mb-4">
-                    <code><NewTabLink href={ BACKEND_BASE_URL  + "/jobs" }/></code>
-                    <div className="small text-secondary">
-                        Keep an eye on the current match jobs on the server (<span className="text-danger">DEPRECATED!</span>) 
-                    </div>
-                </dd> */}
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Completed Jobs are Deleted After</dt>
                 <dd className="mb-4">
                     <code>{ config.completedJobLifetimeMinutes } minutes</code>
                     <div className="small text-secondary">
-                        Once a match job is completed you will have { config.completedJobLifetimeMinutes } minutes
+                        Once a match job is completed a client has { config.completedJobLifetimeMinutes } minutes
                         to download the results before they are deleted.
                     </div>
                 </dd>
@@ -138,17 +97,18 @@ export default function ServerInfo() {
                     <code>{ config.jobMaxLifetimeMinutes } minutes</code>
                     <div className="small text-secondary">
                         If for whatever reason a match job is unable to complete
-                        in { config.jobMaxLifetimeMinutes } minutes, it will be
-                        deleted regardless of its current status.
+                        in { config.jobMaxLifetimeMinutes } minutes, the server
+                        will delete it regardless of its current status.
                     </div>
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Max Patient Parameters</dt>
                 <dd className="mb-4">
                     <code>{ config.resourceParameterLimit }</code>
                     <div className="small text-secondary">
-                        You cannot send more then this number of patient parameters
-                        in one match request. If you need to match more you will
-                        have to split them into multiple match requests.
+                        A client may not send more then this number of patient
+                        parameters in one match request. If If a client needs to
+                        match more you will have to split them into multiple
+                        match requests.
                     </div>
                 </dd>
             </dl>

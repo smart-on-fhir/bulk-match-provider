@@ -19,7 +19,7 @@ export default {
     maxAccessTokenLifetime: uInt(env.MAX_ACCESS_TOKEN_LIFETIME, 60),
 
     // Accept JWKs using the following algorithms
-    supportedAlgorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
+    supportedAlgorithms: ["RS384", "RS512", "ES384", "ES512"],
 
     // Keep jobs for how long (minutes since creation)?
     jobMaxLifetimeMinutes: uInt(env.JOB_MAX_LIFETIME_MINUTES, 60),

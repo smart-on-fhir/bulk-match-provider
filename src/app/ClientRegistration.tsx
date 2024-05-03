@@ -121,7 +121,7 @@ export default function ClientRegistration() {
                         <label className="form-check-label">
                             <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "sample" } onChange={() => setKeyType("sample")} />
                             Use our example keys
-                            <div className="form-text">Use our sample pair of keys (<span className="text-danger">for quick testing only</span>)</div>
+                            <div className="form-text">Use our sample pair of keys (<span className="text-danger">for testing only</span>)</div>
                         </label>
                     </div>
                 </div>
@@ -157,12 +157,12 @@ export default function ClientRegistration() {
                         </div>
                         <div className="form-text mt-3">
                             <i className="bi bi-info-circle-fill text-primary me-2" />
-                            We will verify your token signature using the public key found at:
+                            The server will verify your token signature using the public key found at:
                             <ul>
                                 <li><a href={`${BACKEND_BASE_URL}/keys/${sampleAlg}.jwks.json`} target="_blank" rel="noreferrer">{BACKEND_BASE_URL}/keys/{sampleAlg}.jwks.json</a></li>
                             </ul>
                             <i className="bi bi-info-circle-fill text-primary me-2" />
-                            Your client must sign it's tokens with the private key found at:
+                            A client must sign tokens with the private key found at:
                             <ul className="mb-0">
                                 <li><a href={`${BACKEND_BASE_URL}/keys/${sampleAlg}.private.json`} target="_blank" rel="noreferrer">{BACKEND_BASE_URL}/keys/{sampleAlg}.private.json</a></li>
                                 <li><a href={`${BACKEND_BASE_URL}/keys/${sampleAlg}.private.pem`} target="_blank" rel="noreferrer">{BACKEND_BASE_URL}/keys/{sampleAlg}.private.pem</a></li>
@@ -220,33 +220,30 @@ export default function ClientRegistration() {
                 <div className="col">
                     <label className="form-label text-primary-emphasis">Match Mode</label>
                     <div className="btn-group w-100">
-                        <button type="button" className={"btn" + (mode === "normal" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("normal")}>Built-in Match</button>
-                        <button type="button" className={"btn" + (mode === "fake"   ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("fake"  )}>Fake Match</button>
-                        <button type="button" className={"btn" + (mode === "remote" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("remote")}>Remote Match</button>
+                        <button type="button" className={"btn" + (mode === "normal" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("normal")}>Local Matches</button>
+                        <button type="button" className={"btn" + (mode === "fake"   ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("fake"  )}>Simulated Matches</button>
+                        <button type="button" className={"btn" + (mode === "remote" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("remote")}>Proxy Matches</button>
                     </div>
                 </div>
             </div>
             { mode === "normal" && <div className="form-text small">
-                Use our built-in match algorithm to emulate what would happen if you run this operations
-                against a real match server.
+                Match against patients in our <a href={ BACKEND_BASE_URL  + "/patients" } rel="download">sample data set<i className="bi bi-cloud-download ms-2" /></a>
             </div> }
             { mode === "fake" && <>
                 <div className="form-text small">
-                    In this mode you can submit some patients you are looking to match and we will pretend
-                    that some of them have been successfully matched against our database, even though we
-                    don't really have any matching done.
+                    The server will respond with "successful" matches for submitted patients even when they're not in our data set.
                 </div>
                 <div className="my-4 row">
                     <div className="col">
                         <div className="d-flex justify-content-between">
-                            <label htmlFor="fakeMatches" className="text-primary-emphasis">Fake Matches</label>
+                            <label htmlFor="fakeMatches" className="text-primary-emphasis">Percentage of patients matched</label>
                             <span>{fakeMatches}%</span>
                         </div>
                         <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => setFakeMatches(e.target.valueAsNumber)} min={0} max={100} step={10} />
                     </div>
                     <div className="col">
                         <div className="d-flex justify-content-between">
-                            <label htmlFor="fakeDuplicates" className="text-primary-emphasis">Fake Duplicates</label>
+                            <label htmlFor="fakeDuplicates" className="text-primary-emphasis">Percentage with multiple matches</label>
                             <span>{duplicates}%</span>
                         </div>
                         <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => setDuplicates(e.target.valueAsNumber)} min={0} max={50} step={5} />
@@ -255,28 +252,22 @@ export default function ClientRegistration() {
             </> }
             { mode === "remote" && <>
                 <div className="form-text small">
-                    In this mode we will proxy the patients you are looking for to a
-                    remote FHIR server of your choosing. The remote FHIR server must
-                    support the <code>Patient/$match</code> operation.
+                    The server will proxy the individual matches within the bulk request
+                    to a FHIR server that supports the <code>Patient/$match</code> operation.
                 </div>
                 <div className="my-4">
-                    <label htmlFor="err" className="form-label text-primary-emphasis">External Match Server</label>
+                    <label htmlFor="err" className="form-label text-primary-emphasis">FHIR Server Base URL</label>
                     <input type="url" className="form-control" value={matchServer} onChange={e => setMatchServer(e.target.value)} name="url" required />
-                    <div className="form-text small">
-                        If provided we will proxy match requests to this FHIR server. Enter the
-                        full base URL of the FHIR server and we will append <code>Patient/$match</code> to it.
-                    </div>
+                    <div className="form-text small">The server will proxy the individual matches within the bulk request to this server</div>
                 </div>
                 <div className="d-flex justify-content-between align-items-center flex-wrap my-2 border-bottom border-2 py-1">
-                    <label className="text-primary-emphasis">HTTP Headers</label>
+                    <label className="text-primary-emphasis">HTTP headers sent with each request</label>
                     <button className="btn btn-sm border-success text-success border-opacity-25 btn-light" type="button" onClick={() => setHeaders([ ...headers, ["", ""] ])}>
                         <i className="bi bi-plus-circle" /> Add Header
                     </button>
                 </div>
                 <div className="form-text small mb-1">
-                    As an example, if you have an access token and want to
-                    use it to authenticate add an <code>authorization</code> header
-                    with value of "<code>Bearer {"{"}your-token{"}"}</code>".
+                    For example, to use an access token, add an authorization header with a value of "<code>Bearer {"{"}token{"}"}</code>".
                 </div>
                 <ParamList params={headers} onChange={headers => setHeaders([...headers])}/>
             </> }
