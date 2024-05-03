@@ -22,7 +22,7 @@ export default function MatchResults({ manifest }: { manifest: MatchManifest }) 
                             <a href={ entry.url } rel="download" onClick={ e => e.stopPropagation() } className="mx-4">
                                 <i className="bi bi-cloud-download" />
                             </a>
-                            <span className="badge rounded-pill bg-success-subtle text-success">{ count } bundles</span>
+                            <span className="badge rounded-pill bg-success-subtle text-success">{ count } bundle{count === 1 ? "" : "s"}</span>
                         </>
                     } open>
                         <BundlePreview url={entry.url} />
@@ -99,7 +99,12 @@ function BundlePreview({
             )?.valueReference?.reference
 
             return (
-                <Collapse key={i} header={<div>Bundle for <b>{inputPatient}</b> <span className="badge rounded-pill bg-success-subtle text-success align-text-bottom ms-2">{item.total} results</span></div>}>
+                <Collapse key={i} header={
+                    <div>
+                        Bundle for <b>{inputPatient}</b>
+                        <span className="badge rounded-pill bg-success-subtle text-success align-text-bottom ms-2">{item.total} result{item.total === 1 ? "" : "s"}</span>
+                    </div>
+                }>
                     { item.entry?.map((entry, y) => {
                         if (entry.resource?.resourceType === "Patient") {
                             
