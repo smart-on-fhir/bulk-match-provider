@@ -282,9 +282,10 @@ export default function ClientRegistration() {
                 <ParamList params={headers} onChange={headers => setHeaders([...headers])}/>
             </> }
             <div className="my-4 mt-5 bg-primary-subtle" style={{ height: 2 }} />
-            <div className="mb-3 text-center">
+            
+            { keyType !== "none" && <div className="mb-3 text-center">
                 <button type="submit" className="btn btn-primary px-4 bg-gradient" disabled={cannotSubmit}>Register</button>
-            </div>
+            </div> }
 
             <label className="form-label text-primary-emphasis me-1">Bulk Patient Matching Endpoint</label>
             <div className="mb-4 form-control bg-light form-control-sm">
@@ -331,7 +332,7 @@ function CustomHeadersList({
         return null
     }
 
-    if (mode === "remote" && !matchServer && !headers.length) {
+    if (mode === "remote" && !matchServer) {
         return null
     }
 
@@ -339,18 +340,17 @@ function CustomHeadersList({
         return null
     }
 
-    const headersList = (mode === "remote" && matchServer && headers.length) ?
+    const headersList = (mode === "remote" && matchServer) ?
         cleanProxyHeaders(headers) :
-        "";
+        [];
 
     return (
         <>
             <label className="form-label text-primary-emphasis mb-0">Custom HTTP Headers</label>
             <div className="form-text small mt-0 mb-1">
-                Some proprietary behavior customization settings are normally stored
-                in the registered client. To enable that without having to authenticate,
-                clients will have to include the following HTTP headers in the requests
-                they make.
+            Customization settings are normally stored by registering a client.
+            To customize settings without having to register and authenticate,
+            include the following HTTP headers in the requests you make.
             </div>
             <div className="bg-light py-1 px-2 form-control form-control-sm">
                 { mode === "remote" && matchServer && <><code><b>x-proxy-url:</b> { matchServer }</code><br /></> }
@@ -366,7 +366,7 @@ function CustomHeadersList({
 function cleanProxyHeaders(arr: [string, string][]) {
     return arr.filter(p => (
         Array.isArray(p) && 
-        p.length === 2 &&
+        p.length    === 2 &&
         typeof p[0] === "string" &&
         typeof p[1] === "string" &&
         !!p[0].trim() &&
