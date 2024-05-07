@@ -25,7 +25,7 @@ export default function ClientRegistration() {
     const [ error      , setError      ] = useState<Error | string | null>(null)
     const [ assertion  , setAssertion  ] = useState("")
     const [ matchServer, setMatchServer] = useState("")
-    const [ keyType    , setKeyType    ] = useState<"url" | "inline" | "sample">("url")
+    const [ keyType    , setKeyType    ] = useState<"url" | "inline" | "sample" | "none">("url")
     const [ sampleAlg  , setSampleAlg  ] = useState<"ES384" | "RS384">("ES384")
     const [ fakeMatches, setFakeMatches] = useState(0)
     const [ duplicates , setDuplicates ] = useState(0)
@@ -35,7 +35,8 @@ export default function ClientRegistration() {
     const cannotSubmit = !!(
         loading ||
         (keyType === "url" && !jwksUrl) ||
-        (keyType === "inline" && (!jwks || jwksError)) 
+        (keyType === "inline" && (!jwks || jwksError)) ||
+        (mode === "fake" && !fakeMatches)
     )
 
     function onSubmit(e: FormEvent) {
@@ -124,6 +125,13 @@ export default function ClientRegistration() {
                             <div className="form-text mt-0">Use our sample pair of keys (<span className="text-danger">for testing only</span>)</div>
                         </label>
                     </div>
+                    <div className="form-check">
+                        <label className="form-check-label">
+                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "none" } onChange={() => setKeyType("none")} />
+                            None
+                            <div className="form-text mt-0">Use the server without authentication</div>
+                        </label>
+                    </div>
                 </div>
                 <div className="col-lg-6 mb-5">
                     { keyType === "url" && <>
@@ -141,7 +149,7 @@ export default function ClientRegistration() {
                             <label className="form-label text-primary-emphasis">Public Key JWK</label>
                             <div className="form-label text-danger"><small>{ jwks ? jwksError : "" }</small></div>
                         </div>
-                        <textarea className="form-control form-control-sm font-monospace" rows={10} placeholder="{ Public Key as JWK }" style={{
+                        <textarea className="form-control form-control-sm font-monospace" rows={13} placeholder="{ Public Key as JWK }" style={{
                             whiteSpace: "pre",
                             lineHeight: 1.2,
                             fontSize: "13px"
@@ -173,49 +181,51 @@ export default function ClientRegistration() {
             </div>
             <h5 className="text-primary"><i className="bi bi-gear" /> Advanced</h5>
             <div className="my-2 bg-primary-subtle" style={{ height: 2 }} />
-            <div className="mb-4 mt-3 row">
-                <div className="col">
-                    <label htmlFor="err" className="form-label text-primary-emphasis">Simulated Error</label>
-                    <select className="form-select" value={err} onChange={e => setErr(e.target.value)}>
-                        <option value="">None</option>
-                        <optgroup label="During Authentication">
-                            <option value="expired_registration_token">Expired client</option>
-                            <option value="reg_invalid_scope">Invalid scope</option>
-                            <option value="invalid_client">Invalid client</option>
-                        </optgroup>
-                        <optgroup label="During Access">
-                            <option value="invalid_scope">Invalid scope</option>
-                            <option value="invalid_access_token">Invalid access token</option>
-                            <option value="expired_access_token">Expired access token</option>
-                            <option value="unauthorized_client">Unauthorized client</option>
-                            <option value="too_many_patient_params">Too many patient parameters at Kick-off request</option>
-                            <option value="too_frequent_status_requests">Too frequent status requests</option>
-                            <option value="transient_status_error">Job temporarily failing (transient error)</option>
-                            <option value="match_error">Append match error to result bundles</option>
-                            <option value="file_not_found">File not found during download</option>
-                        </optgroup>
-                    </select>
-                    <div className="form-text small">
-                        Force the server to throw certain type of error in different
-                        places (useful for manual testing).
+            { keyType !== "none" && 
+                <div className="mb-4 mt-3 row">
+                    <div className="col">
+                        <label htmlFor="err" className="form-label text-primary-emphasis">Simulated Error</label>
+                        <select className="form-select" value={err} onChange={e => setErr(e.target.value)}>
+                            <option value="">None</option>
+                            <optgroup label="During Authentication">
+                                <option value="expired_registration_token">Expired client</option>
+                                <option value="reg_invalid_scope">Invalid scope</option>
+                                <option value="invalid_client">Invalid client</option>
+                            </optgroup>
+                            <optgroup label="During Access">
+                                <option value="invalid_scope">Invalid scope</option>
+                                <option value="invalid_access_token">Invalid access token</option>
+                                <option value="expired_access_token">Expired access token</option>
+                                <option value="unauthorized_client">Unauthorized client</option>
+                                <option value="too_many_patient_params">Too many patient parameters at Kick-off request</option>
+                                <option value="too_frequent_status_requests">Too frequent status requests</option>
+                                <option value="transient_status_error">Job temporarily failing (transient error)</option>
+                                <option value="match_error">Append match error to result bundles</option>
+                                <option value="file_not_found">File not found during download</option>
+                            </optgroup>
+                        </select>
+                        <div className="form-text small">
+                            Force the server to throw certain type of error in different
+                            places (useful for manual testing).
+                        </div>
+                    </div>
+                    <div className="col">
+                        <label htmlFor="dur" className="form-label text-primary-emphasis">Access Token Lifetime</label>
+                        <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
+                            <option value={0}>Auto (whatever the client specified)</option>
+                            <option value={1}>1 minute</option>
+                            <option value={5}>5 minutes</option>
+                            <option value={15}>15 minutes</option>
+                            <option value={60}>1 hour</option>
+                        </select>
+                        <div className="form-text small">
+                            Normally the client will determine how long should the
+                            access token be issued for, but this setting will take
+                            precedence if used.
+                        </div>
                     </div>
                 </div>
-                <div className="col">
-                    <label htmlFor="dur" className="form-label text-primary-emphasis">Access Token Lifetime</label>
-                    <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
-                        <option value={0}>Auto (whatever the client specified)</option>
-                        <option value={1}>1 minute</option>
-                        <option value={5}>5 minutes</option>
-                        <option value={15}>15 minutes</option>
-                        <option value={60}>1 hour</option>
-                    </select>
-                    <div className="form-text small">
-                        Normally the client will determine how long should the
-                        access token be issued for, but this setting will take
-                        precedence if used.
-                    </div>
-                </div>
-            </div>
+            }
             <div className="mb-2 mt-3 row">
                 <div className="col">
                     <label className="form-label text-primary-emphasis">Match Mode</label>
@@ -275,7 +285,21 @@ export default function ClientRegistration() {
             <div className="mb-3 text-center">
                 <button type="submit" className="btn btn-primary px-4 bg-gradient" disabled={cannotSubmit}>Register</button>
             </div>
-            { !!assertion && <>
+
+            <label className="form-label text-primary-emphasis me-1">Bulk Patient Matching Endpoint</label>
+            <div className="mb-4 form-control bg-light form-control-sm">
+                <code>{ BACKEND_BASE_URL + "/fhir/Patient/$bulk-match" }</code>
+            </div>
+
+            { keyType === "none" && <CustomHeadersList
+                mode={mode}
+                duplicates={duplicates}
+                fakeMatches={fakeMatches}
+                matchServer={matchServer}
+                headers={headers}
+            /> }
+
+            { keyType !== "none" && !!assertion && <>
                 <div className="d-flex justify-content-between mb-1">
                     <b className="text-primary-emphasis">Your Client ID:</b>
                     <span
@@ -283,8 +307,69 @@ export default function ClientRegistration() {
                         onClick={() => copy(assertion)}
                     >Copy <i className="bi bi-clipboard-check" /></span>
                 </div>
-                <textarea className="form-control text-primary-emphasis form-control-sm" rows={4} value={assertion} readOnly/>
+                <textarea className="form-control text-primary-emphasis form-control-sm bg-light" rows={4} value={assertion} readOnly/>
             </> }
         </form>
     )
+}
+
+function CustomHeadersList({
+    mode,
+    matchServer,
+    fakeMatches,
+    duplicates,
+    headers = []
+}: {
+    mode: "remote" | "fake" | string
+    matchServer?: string
+    headers?: [string, string][]
+    fakeMatches?: number
+    duplicates?: number
+})
+{
+    if (mode !== "fake" && mode !== "remote") {
+        return null
+    }
+
+    if (mode === "remote" && !matchServer && !headers.length) {
+        return null
+    }
+
+    if (mode === "fake" && !fakeMatches) {
+        return null
+    }
+
+    const headersList = (mode === "remote" && matchServer && headers.length) ?
+        cleanProxyHeaders(headers) :
+        "";
+
+    return (
+        <>
+            <label className="form-label text-primary-emphasis mb-0">Custom HTTP Headers</label>
+            <div className="form-text small mt-0 mb-1">
+                Some proprietary behavior customization settings are normally stored
+                in the registered client. To enable that without having to authenticate,
+                clients will have to include the following HTTP headers in the requests
+                they make.
+            </div>
+            <div className="bg-light py-1 px-2 form-control form-control-sm">
+                { mode === "remote" && matchServer && <><code><b>x-proxy-url:</b> { matchServer }</code><br /></> }
+                { headersList.length > 0 && <><code><b>x-proxy-headers:</b> { JSON.stringify(headersList) }</code><br/></> }
+                { mode === "fake" && !!fakeMatches && <><code><b>x-pct-matches:</b> { fakeMatches }</code><br /></> }
+                { mode === "fake" && !!fakeMatches && !!duplicates && <><code><b>x-pct-duplicates:</b> { duplicates }</code><br/></> }
+            </div>
+        </>
+    )
+}
+
+
+function cleanProxyHeaders(arr: [string, string][]) {
+    return arr.filter(p => (
+        Array.isArray(p) && 
+        p.length === 2 &&
+        typeof p[0] === "string" &&
+        typeof p[1] === "string" &&
+        !!p[0].trim() &&
+        !!p[1].trim()
+    ))
 }

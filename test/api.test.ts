@@ -2121,4 +2121,192 @@ describe("API", () => {
             /Match job failed because less than \d+% of the matches ran successfully/
         )
     })
+
+    it ("Proxy using x-proxy-url", async () => {
+
+        function randomPatientMatchEntry() {
+            const patientId = faker.string.uuid()
+            return {
+                fullUrl: `${mockServer.baseUrl}/Patient/${patientId}`,
+                resource: {
+                    resourceType: "Patient",
+                    id: patientId
+                },
+                search: {
+                    extension: [{
+                        url: "http://hl7.org/fhir/StructureDefinition/match-grade",
+                        valueCode: "certain"
+                    }],
+                    mode: "match",
+                    score: faker.number.float({ min: 0.6, max: 1 })
+                }
+            }
+        }
+        
+        mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+            handler(req, res) {
+                res.json({
+                    resourceType: "Bundle",
+                    id: faker.string.uuid(),
+                    type: "searchset",
+                    total: 2,
+                    entry: [
+                        randomPatientMatchEntry(),
+                        randomPatientMatchEntry()
+                    ]
+                })
+            }
+        })
+
+        const client = new BulkMatchClient({ baseUrl })
+
+        await client.kickOff({
+            resource: [
+                { resourceType: "Patient", id: "#1" },
+                { resourceType: "Patient", id: "#2" },
+                { resourceType: "Patient", id: "#3" },
+            ],
+            count: 100,
+            headers: {
+                "x-proxy-url": mockServer.baseUrl
+            }
+        })
+
+        await expectResult(client, {
+            numberOfFiles: 2,
+            numberOfBundles: 3,
+            numberOfMatches: [2, 2, 2]
+        })
+
+        const txt1   = await client.download(0)
+        const txt2   = await client.download(1)
+        const bundles = txt1.split(/\n/).filter(Boolean).concat(txt2.split(/\n/).filter(Boolean)).map(l => JSON.parse(l))
+
+        // console.log(bundles)
+
+        assert.equal(bundles[0].total, 2)
+        assert.equal(
+            bundles[0].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+            `Patient/#1`
+        )
+        
+        
+        assert.equal(bundles[1].total, 2)
+        assert.equal(
+            bundles[1].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+            `Patient/#2`
+        )
+
+
+        assert.equal(bundles[2].total, 2)
+        assert.equal(
+            bundles[2].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+            `Patient/#3`
+        )
+    })
+    
+    it ("Proxy using x-proxy-url plus x-proxy-headers", async () => {
+
+        let sentHeaders: any = {}
+
+        mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+            handler(req, res) {
+                sentHeaders = req.headers
+                res.json({
+                    resourceType: "Bundle",
+                    type: "searchset",
+                    total: 0,
+                    entry: []
+                })
+            }
+        })
+
+        const client = new BulkMatchClient({ baseUrl })
+
+        await client.kickOff({
+            resource: [{ resourceType: "Patient", id: "#1" }],
+            headers: {
+                "x-proxy-url": mockServer.baseUrl,
+                "x-proxy-headers": '[["x-a","a"],["x-b","b"],["x-c",""]]'
+            }
+        })
+
+        await client.waitForCompletion()
+
+        assert.deepEqual(sentHeaders["x-a"], "a")
+        assert.deepEqual(sentHeaders["x-b"], "b")
+        assert.ok(sentHeaders.hasOwnProperty("x-c") === false)
+    })
+
+    it ("Rejects x-proxy-headers if not an array", async () => {
+
+        mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+            handler(req, res) {
+                res.json({
+                    resourceType: "Bundle",
+                    type: "searchset",
+                    total: 0,
+                    entry: []
+                })
+            }
+        })
+
+        const client = new BulkMatchClient({ baseUrl })
+
+        await client.kickOff({
+            resource: [{ resourceType: "Patient", id: "#1" }],
+            headers: {
+                "x-proxy-url": mockServer.baseUrl,
+                "x-proxy-headers": '"whatever"'
+            }
+        })
+
+        await expectResult(client, {
+            numberOfFiles: 1,
+            numberOfBundles: 1,
+            numberOfMatches: [0]
+        })
+    })
+    
+    it ("percentFakeMatches with open server", async () => {
+        const client   = new BulkMatchClient({ baseUrl })
+        await client.kickOff({
+            resource: [
+                { resourceType: "Patient", id: "#1", name: [{ family: "Patient 1 Name" }] },
+                { resourceType: "Patient", id: "#2", name: [{ family: "Patient 2 Name" }] },
+                { resourceType: "Patient", id: "#3", name: [{ family: "Patient 3 Name" }] },
+            ],
+            headers: {
+                "x-pct-matches": "70"
+            }
+        })
+        await expectResult(client, {
+            numberOfFiles     : 2,
+            numberOfBundles   : 3,
+            percentFakeMatches: 70,
+            numberOfMatches   : [1, 1, 0]
+        })
+    })
+
+    it ("percentFakeDuplicates with open server", async () => {
+        const client = new BulkMatchClient({ baseUrl })
+        await client.kickOff({
+            resource: [
+                { resourceType: "Patient", id: "1", name: [{ family: "Patient 1 Name" }] },
+                { resourceType: "Patient", id: "2", name: [{ family: "Patient 2 Name" }] },
+                { resourceType: "Patient", id: "3", name: [{ family: "Patient 3 Name" }] },
+            ],
+            headers: {
+                "x-pct-matches": "100",
+                "x-pct-duplicates": "90"
+            }
+        })
+        await expectResult(client, {
+            numberOfFiles        : 2,
+            numberOfBundles      : 3,
+            percentFakeMatches   : 100,
+            percentFakeDuplicates: 90,
+            numberOfMatches      : [2,2,2]
+        })
+    })
 })
