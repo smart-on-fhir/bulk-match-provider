@@ -107,21 +107,21 @@ export default function ClientRegistration() {
                         <label className="form-check-label">
                             <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "url" } onChange={() => setKeyType("url")} />
                             Fetch the key from JWKS URL (<b>recommended</b>)
-                            <div className="form-text">Provide an URL to your JWKS containing your public key(s)</div>
+                            <div className="form-text mt-0">Provide an URL to your JWKS containing your public key(s)</div>
                         </label>
                     </div>
                     <div className="form-check mb-3">
                         <label className="form-check-label">
                             <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "inline" } onChange={() => setKeyType("inline")} />
                             Provide the key now
-                            <div className="form-text">Register your public key as JWK</div>
+                            <div className="form-text mt-0">Register your public key as JWK</div>
                         </label>
                     </div>
-                    <div className="form-check">
+                    <div className="form-check mb-3">
                         <label className="form-check-label">
                             <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "sample" } onChange={() => setKeyType("sample")} />
                             Use our example keys
-                            <div className="form-text">Use our sample pair of keys (<span className="text-danger">for testing only</span>)</div>
+                            <div className="form-text mt-0">Use our sample pair of keys (<span className="text-danger">for testing only</span>)</div>
                         </label>
                     </div>
                 </div>
