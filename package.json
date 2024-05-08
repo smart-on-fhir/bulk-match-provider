@@ -10,12 +10,10 @@
     "start:server": "ts-node --transpile-only ./src/index.ts",
     "watch:server": "nodemon -w ./src -e ts,json -x 'npm run start:server'",
     "clean:server": "rm -rf ./jobs/* && touch ./jobs/.gitkeep",
-    "dev": "npm run clean:app && npm run clean:server && concurrently npm:start:app npm:watch:server",
+    "dev": "npm run clean:app && npm run clean:server && PORT=3456 concurrently npm:start:app npm:watch:server",
     "start": "npm run clean:app && npm run clean:server && npm run build:app && npm run start:server",
     "test": "DOTENV_CONFIG_PATH=.env.test nyc --reporter=lcov mocha -r ts-node/register",
-    "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'",
-    "deprecated:watch:app": "NODE_ENV=development parcel watch --target app --target sample-app --port 3457",
-    "deprecated:build:server": ""
+    "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'"
   },
   "targets": {
     "app": {
