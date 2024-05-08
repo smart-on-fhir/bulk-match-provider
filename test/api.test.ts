@@ -1881,6 +1881,14 @@ describe("API", () => {
         assert.match(res.headers.get("content-type")!, /\bjson\b/)
     })
 
+    it ("/env", async () => {
+        const res = await fetch(`${baseUrl}/env`)
+        assert.equal(res.status, 200)
+        assert.match(res.headers.get("content-type")!, /\bjson\b/)
+        const json = await res.json()
+        assert.match(json.VERSION, /^\d\.\d\.\d$/)
+    })
+
     it ("CapabilityStatement", async () => {
         const res = await fetch(`${baseUrl}/fhir/metadata`)
         assert.equal(res.status, 200)
