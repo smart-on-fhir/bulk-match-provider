@@ -6,8 +6,6 @@ import { uInt }                from "./lib"
 
 
 export function register(req: Request, res: Response) {
-
-    // console.log(req.body)
         
     // Require "application/x-www-form-urlencoded" POSTs
     if (!req.headers["content-type"] || req.headers["content-type"].indexOf("application/x-www-form-urlencoded") !== 0) {

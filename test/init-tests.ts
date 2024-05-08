@@ -1,6 +1,6 @@
-import path from "path"
-import fs   from "fs/promises"
-import { wait } from "../src/lib";
+import path     from "path"
+import fs       from "fs/promises"
+import { wait } from "../src/lib"
 
 
 async function deleteSubfolders(directory: string) {
@@ -13,7 +13,6 @@ async function deleteSubfolders(directory: string) {
     
             if (stat.isDirectory()) {
                 await fs.rm(filePath, { recursive: true });
-                // console.log(`Deleted subfolder: ${filePath}`);
             }
         }
     } catch (err) {

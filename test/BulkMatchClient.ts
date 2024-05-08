@@ -181,7 +181,6 @@ export default class BulkMatchClient
             body.parameter!.push({ name: "_outputFormat", valueString: _outputFormat })
         }
 
-        // console.log(JSON.stringify(body))
         const cfg = {
             method: "POST",
             body: JSON.stringify(body),
@@ -189,7 +188,6 @@ export default class BulkMatchClient
                 "Content-Type": "application/json",
                 accept        : "application/fhir+ndjson",
                 prefer        : "respond-async",
-                // authorization: `Bearer ${json.access_token}`,
                 ...headers
             }
         }
@@ -209,7 +207,6 @@ export default class BulkMatchClient
         }
 
         return res
-        // const json = await res.json()
     }
 
     async waitForCompletion(frequency?: number, exitOn429 = false): Promise<MatchManifest>
