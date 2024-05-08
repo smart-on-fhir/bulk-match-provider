@@ -1,11 +1,23 @@
-import { useState }       from "react"
-import ClientRegistration from "./ClientRegistration"
-import ServerInfo         from "./ServerInfo"
+import { useEffect, useState } from "react"
+import ClientRegistration      from "./ClientRegistration"
+import ServerInfo              from "./ServerInfo"
 import "./style.scss"
 
 
 export default function App() {
     const [tabIndex, setTabIndex] = useState(1);
+    const [env, setEnv] = useState<Record<string, string|number>>({})
+
+    const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ?
+        window.location.origin :
+        "http://127.0.0.1:3456"
+    
+    useEffect(() => {
+        fetch(BACKEND_BASE_URL + "/env")
+            .then(res => res.json())
+            .then(setEnv)
+            .catch(console.error)
+    }, [])
     
     return (
         <>
@@ -53,6 +65,20 @@ export default function App() {
                     <div className={"tab-pane" + (tabIndex === 1 ? " show active" : "")} role="tabpanel" tabIndex={0}>
                         <ClientRegistration />
                     </div>
+                </div>
+            </div>
+
+            <div className="bg-light border border-top py-4">
+                <div className="text-center small mb-2">
+                    Submit an issue or PR on <a href="https://github.com/smart-on-fhir/bulk-match-provider" rel="noreferrer noopener" target="_blank">GitHub</a>.
+                </div>
+                <div className="text-center small">
+                    <b> Version:</b> { env.VERSION }
+                    { env.COMMIT && <>
+                    ; <b> Commit:</b> <a
+                    href={ "https://github.com/smart-on-fhir/bulk-match-provider/commit/" + env.COMMIT }
+                    rel="noreferrer noopener"
+                    target="_blank">{ env.COMMIT }</a></> }
                 </div>
             </div>
         </>

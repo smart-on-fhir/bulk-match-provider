@@ -10,10 +10,10 @@ import { InternalServerError, NotFound }        from "./HttpError"
 import { startChecking }                        from "./JobManager"
 import * as Gateway                             from "./Gateway"
 import { router as FHIRRouter }                 from "./fhir" 
-import { smartConfig }                          from "./WellKnown"
 import { register }                             from "./register"
 import { tokenHandler }                         from "./token"
 import { OAuthError }                           from "./OAuthError"
+import pkg                                      from "../package.json"
 import {
     asyncRouteWrap,
     checkAuth,
@@ -62,6 +62,11 @@ app.get("/config", (req, res) => res.json({
     jobMaxLifetimeMinutes      : config.jobMaxLifetimeMinutes,
     completedJobLifetimeMinutes: config.completedJobLifetimeMinutes,
     resourceParameterLimit     : config.resourceParameterLimit
+}))
+
+app.get("/env", (req, res) => res.json({
+    VERSION: pkg.version,
+    COMMIT : process.env.SOURCE_VERSION,
 }))
 
 // Static
