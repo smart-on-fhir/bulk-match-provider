@@ -45,7 +45,7 @@ export default {
     // a retry delay (in milliseconds) for the status endpoint
     retryAfter: 2000,
 
-    // Throttle all http responses (mostly useful fir development/testing)
+    // Throttle all http responses (mostly useful for development/testing)
     throttle: uInt(env.THROTTLE, 0),
 
     // Limit the maximum number of records to return per resource
