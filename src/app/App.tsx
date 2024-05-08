@@ -74,11 +74,6 @@ export default function App() {
                 </div>
                 <div className="text-center small">
                     <b> Version:</b> { env.VERSION }
-                    { env.COMMIT && <>
-                    ; <b> Commit:</b> <a
-                    href={ "https://github.com/smart-on-fhir/bulk-match-provider/commit/" + env.COMMIT }
-                    rel="noreferrer noopener"
-                    target="_blank">{ env.COMMIT }</a></> }
                 </div>
             </div>
         </>

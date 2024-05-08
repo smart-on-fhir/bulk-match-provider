@@ -64,10 +64,7 @@ app.get("/config", (req, res) => res.json({
     resourceParameterLimit     : config.resourceParameterLimit
 }))
 
-app.get("/env", (req, res) => res.json({
-    VERSION: pkg.version,
-    COMMIT : process.env.SOURCE_VERSION,
-}))
+app.get("/env", (req, res) => res.json({ VERSION: pkg.version }))
 
 // Static
 app.use(express.static(join(__dirname, "../static/")));
