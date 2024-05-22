@@ -212,8 +212,6 @@ export async function kickOff(req: app.Request, res: Response) {
 }
 
 function validateMatchHeaders(headers: IncomingHttpHeaders) {
-
-    // console.log(headers)
     
     // Specifies the format of the optional FHIR OperationOutcome resource
     // response to the kick-off request. Currently, only application/fhir+json

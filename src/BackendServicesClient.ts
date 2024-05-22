@@ -4,36 +4,92 @@ import jwkToPem        from "jwk-to-pem"
 import { JSONObject }  from ".."
 
 
+/**
+ * Options passed to the BackendServicesClient constructor
+ */
 export interface BackendServicesClientOptions {
+    
+    /**
+     * The client ID as obtained from the auth server after registration.
+     * Set this to empty string for open servers.
+     */
     clientId: string
     
-    /** Access token lifetime in seconds */
+    /**
+     * Access token lifetime in seconds
+     */
     accessTokenLifetime?: number
 
+    /**
+     * The private key as JWK or null for open servers
+     */
     privateKey: any
+
+    /**
+     * Space separated list of one or more scopes to be requested by the remote
+     * server. Ignored if we are connecting to an open server
+     */
     scope: string
+
+    /**
+     * The baseUrl of the server we want to connect to
+     */
     baseUrl: string
 }
 
+/**
+ * A client for servers supporting the SMART BackendServices authentication.
+ * Alternatively, this can also be used against open servers without any
+ * authentication.
+ */
 export default class BackendServicesClient {
 
+    /**
+     * Keep track of when the current access token (if any) will expire
+     */
     private accessTokenExpiresAt: number = 0;
 
+    /**
+     * The current access token (if any)
+     */
     private accessToken: string = ""
 
+    /**
+     * The instance options as passed to the constructor
+     */
     private options: BackendServicesClientOptions;
 
+    /**
+     * If a well-known statement is downloaded it is cached here so that we
+     * don't need to download it again next time we need to get an access token
+     */
     private wellKnownStatement: JSONObject | null = null
 
+    /**
+     * If a CapabilityStatement is downloaded it is cached here so that we
+     * don't need to download it again next time we need to get an access token
+     */
     private capabilityStatement: JSONObject | null = null
 
+    /**
+     * The token URL as discovered from the CapabilityStatement of from the
+     * well-known statement
+     */
     private tokenUrl: string = ""
 
+    /**
+     * The only purpose of this constructor is to remember the passed options
+     */
     constructor(options: BackendServicesClientOptions)
     {
         this.options = options
     }
 
+    /**
+     * Try to download the well-known statement from the remote server. Returns
+     * the result but also stores it internally so that it is not downloaded
+     * again in future calls.
+     */
     public async getWellKnownStatement()
     {
         if (!this.wellKnownStatement) {
@@ -45,6 +101,11 @@ export default class BackendServicesClient {
         return this.wellKnownStatement
     }
 
+    /**
+     * Try to download the CapabilityStatement from the remote server. Returns
+     * the result but also stores it internally so that it is not downloaded
+     * again in future calls.
+     */
     public async getCapabilityStatement()
     {
         if (!this.capabilityStatement) {
@@ -55,6 +116,10 @@ export default class BackendServicesClient {
         return this.capabilityStatement
     }
 
+    /**
+     * Gets the token URL from the wellKnownStatement, or from the capability
+     * statement otherwise.
+     */
     public async getTokenUrl()
     {
         if (!this.tokenUrl) {
@@ -72,6 +137,14 @@ export default class BackendServicesClient {
         return this.tokenUrl
     }
 
+    /**
+     * Gets the current access token.
+     * - If the token is not available (when called for the first time) a new
+     *   access token is requested and stored.
+     * - If the access token is expired or is about to expire within the next
+     *   10 seconds, new token will be obtained. This provides an automatic
+     *   token refresh mechanism.
+     */
     public async getAccessToken()
     {
         if (this.accessToken && this.accessTokenExpiresAt - 10 > Date.now() / 1000) {
@@ -155,6 +228,10 @@ export default class BackendServicesClient {
         return now + 300;
     }
 
+    /**
+     * The request method is a wrapper around the native fetch. It will try to
+     * obtain an access token and append it to the authentication header
+     */
     public async request(input: string | URL, options: RequestInit = {}) {
         const accessToken = await this.getAccessToken();
         const _options = { ...options };
