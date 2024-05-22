@@ -67,6 +67,10 @@ export function createOperationOutcome(message: any, {
     severity?: "fatal" | "error" | "warning" | "information"
 } = {}): fhir4.OperationOutcome
 {
+    if (message && typeof message === "object" && message.resourceType === "OperationOutcome") {
+        return message as fhir4.OperationOutcome
+    }
+
     message = String(message)
 
     return {
@@ -86,6 +90,10 @@ export function createOperationOutcome(message: any, {
             }
         ]
     };
+}
+
+export function getMessageFromOperationOutcome(oo: fhir4.OperationOutcome): string {
+    return oo.issue[0].diagnostics || `${oo.issue[0].severity} ${oo.issue[0].code}`
 }
 
 /**
@@ -181,4 +189,12 @@ export function checkAuth(req: Request, res: Response, next: NextFunction)
     }
 
     next();
+}
+
+/**
+ * Given a response contentType, detects if it can be parsed as json. Accepts
+ * FHIR json types and ignores the charset portion of the content-type header
+ */
+export function isJsonContentType(contentType: string): boolean {
+    return !!contentType.match(/^application\/(json|fhir\+json|json\+fhir)\b/);
 }

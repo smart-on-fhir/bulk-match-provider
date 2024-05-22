@@ -268,8 +268,9 @@ declare namespace app {
         /** Base URL of a FHIR server to use for $match */
         matchServer?: string
 
-        /** Optional headers for the external match server */
-        matchHeaders?: [string, string][]
+        proxyClientId?: string,
+        proxyJWK?: JSONObject | null
+        proxyScope?: string
     }
 
     interface InputPatient extends fhir4.Patient {

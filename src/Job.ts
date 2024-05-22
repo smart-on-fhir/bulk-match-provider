@@ -1,23 +1,18 @@
-import Path                                   from "path"
-import crypto                                 from "crypto"
-import {existsSync, statSync }                from "fs"
-import { format }                             from "node:util"
-import { Bundle, Patient }                    from "fhir/r4"
-import { faker }                              from "@faker-js/faker"
-import config                                 from "./config"
-import { createOperationOutcome, lock, wait } from "./lib"
-import { InternalServerError, NotFound }      from "./HttpError"
-import { matchAll }                           from "./match"
-import patients                               from "./patients"
-import type app                               from "../index"
-import { InputPatient }                       from "../index"
-import {
-    appendFile,
-    mkdir,
-    readFile,
-    rm,
-    writeFile
-} from "fs/promises"
+import Path                              from "path"
+import crypto                            from "crypto"
+import {existsSync, statSync }           from "fs"
+import { format }                        from "node:util"
+import { Bundle, Patient }               from "fhir/r4"
+import { faker }                         from "@faker-js/faker"
+import config                            from "./config"
+import BackendServicesClient             from "./BackendServicesClient"
+import { InternalServerError, NotFound } from "./HttpError"
+import { matchAll }                      from "./match"
+import patients                          from "./patients"
+import type app                          from "../index"
+import { InputPatient, JSONObject }      from "../index"
+import { createOperationOutcome, isJsonContentType, lock, wait } from "./lib"
+import { appendFile, mkdir, readFile, rm, writeFile }            from "fs/promises"
 
 
 interface JobOptions {
@@ -40,8 +35,12 @@ interface JobOptions {
     simulatedError: string
 
     matchServer: string
-        
-    matchHeaders: [string, string][]
+
+    proxyClientId: string
+    
+    proxyScope: string
+
+    proxyJWK: JSONObject | null
 }
 
 export default class Job
@@ -81,13 +80,17 @@ export default class Job
 
     private matchResultOperationOutcomeCount = 0
 
+    private backendServicesClient:BackendServicesClient | null = null
+
     protected options: JobOptions = {
         authenticated: false,
         percentFakeMatches: 0,
         percentFakeDuplicates: 0,
         simulatedError: "",
         matchServer: "",
-        matchHeaders: []
+        proxyClientId: "",
+        proxyScope: "",
+        proxyJWK: null
     };
 
     public manifest: app.MatchManifest = {
@@ -247,9 +250,14 @@ export default class Job
 
         // Remote mode ---------------------------------------------------------
         else if (this.options.matchServer) {
-            const entries = await this.matchOneInputPatientRemote(patient, params)
-            bundle.entry  = entries
-            bundle.total  = entries.length
+            try {
+                const entries = await this.matchOneInputPatientRemote(patient, params)
+                bundle.entry  = entries
+                bundle.total  = entries.length
+            } catch (ex) {
+                bundle.entry  = [createOperationOutcome(ex)]
+                bundle.total  = 1
+            }
         }
 
         // Normal mode ---------------------------------------------------------
@@ -334,13 +342,17 @@ export default class Job
     }
 
     private async matchOneInputPatientRemote(patient: InputPatient, params: app.MatchOperationParams): Promise<fhir4.BundleEntry<fhir4.FhirResource>[]> {
+        
+        const pt = { ...patient } as fhir4.Patient
+        delete pt.id
+
         const body: fhir4.Parameters = {
             resourceType: "Parameters",
             id: "example",
             parameter: [
                 {
                     name: "resource",
-                    resource: patient as fhir4.Patient
+                    resource: pt
                 },
                 {
                     name: "onlyCertainMatches",
@@ -356,26 +368,55 @@ export default class Job
             })
         }
 
-        const url = new URL("Patient/$match", this.options.matchServer)
+        const client = this.getBackendServicesClient()
 
-        const res = await fetch(url, {
+        const res = await client.request("Patient/$match", {
             method : "POST",
             body: JSON.stringify(body),
             signal: this.abortController.signal,
-            headers: [
-                ["Content-Type", "application/json"],
-                ["accept", "application/fhir+json"],
-                ...this.options.matchHeaders
-            ]
+            headers: {
+                "Content-Type": "application/json",
+                "accept": "application/fhir+json"
+            }
         })
 
-        const json = await res.json()
+        const txt = await res.text()
+
+        if (!isJsonContentType(res.headers.get("content-type") || "")) {
+            throw new Error('The remote server did not reply with JSON. Got the following response as text: ' + txt)
+        }
+
+        if (!txt.trim()) {
+            throw new Error('The remote server replied with empty response')
+        }
+
+        try {
+            var json = JSON.parse(txt)
+        } catch (ex) {
+            throw new Error('The remote server response could not be parsed as JSON. ' + ex)
+        }
+
+        if (json.resourceType === "OperationOutcome") {
+            throw json
+        }
 
         if (json.resourceType !== "Bundle") {
             throw new Error('The remote server did not reply with a Bundle')
         }
 
         return json.entry
+    }
+
+    getBackendServicesClient() {
+        if (!this.backendServicesClient) {
+            this.backendServicesClient = new BackendServicesClient({
+                baseUrl   : this.options.matchServer,
+                clientId  : this.options.proxyClientId,
+                scope     : this.options.proxyScope,
+                privateKey: this.options.proxyJWK
+            })
+        }
+        return this.backendServicesClient
     }
     
     private createBundleForInputPatient(patient: InputPatient): fhir4.Bundle {

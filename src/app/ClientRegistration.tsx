@@ -1,36 +1,119 @@
-import { FormEvent, useState } from "react"
-import ParamList from "./ParamList";
-// import { BACKEND_BASE_URL } from "./State"
-export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ?
-    window.location.origin :
-    "http://127.0.0.1:3456"
+import { FormEvent, useReducer, useState } from "react"
+export const BACKEND_BASE_URL = process.env.NODE_ENV === "production" ? window.location.origin : "http://127.0.0.1:3456"
 
-async function copy(txt: string) {
-    try {
-        await navigator.clipboard.writeText(txt);
-    } catch (err) {
-        console.error('Failed to copy text to clipboard:', err);
-        alert('Failed to copy text to clipboard.');
+interface State {
+    jwksUrl      : string
+    jwks         : string
+    jwksError    : string
+    err          : string
+    dur          : number
+    loading      : boolean
+    error        : Error | string | null
+    assertion    : string
+    matchServer  : string
+    keyType      : "url" | "inline" | "sample" | "none"
+    sampleAlg    : "ES384" | "RS384"
+    fakeMatches  : number
+    duplicates   : number
+    mode         : "normal" | "fake" | "remote"
+    proxyClientId: string
+    proxyScope   : string
+    proxyJWK     : string
+}
+
+type setJwksUrlAction       = { type: "setJwksUrl"      , payload: State["jwksUrl"] }
+type setJwksAction          = { type: "setJwks"         , payload: State["jwks"] }
+type setErrAction           = { type: "setErr"          , payload: State["err"] }
+type setDurAction           = { type: "setDur"          , payload: State["dur"] }
+type setLoadingAction       = { type: "setLoading"      , payload: State["loading"] }
+type setErrorAction         = { type: "setError"        , payload: State["error"] }
+type setAssertionAction     = { type: "setAssertion"    , payload: State["assertion"] }
+type setMatchServerAction   = { type: "setMatchServer"  , payload: State["matchServer"] }
+type setKeyTypeAction       = { type: "setKeyType"      , payload: State["keyType"] }
+type setSampleAlgAction     = { type: "setSampleAlg"    , payload: State["sampleAlg"] }
+type setFakeMatchesAction   = { type: "setFakeMatches"  , payload: State["fakeMatches"] }
+type setDuplicatesAction    = { type: "setDuplicates"   , payload: State["duplicates"] }
+type setModeAction          = { type: "setMode"         , payload: State["mode"] }
+type setProxyClientIdAction = { type: "setProxyClientId", payload: State["proxyClientId"] }
+type setProxyScopeAction    = { type: "setProxyScope"   , payload: State["proxyScope"] }
+type setProxyJWKAction      = { type: "setProxyJWK"     , payload: State["proxyJWK"] }
+type mergeAction            = { type: "merge"           , payload: Partial<State> }
+
+type Action = setJwksUrlAction | setJwksAction | mergeAction | setErrAction |
+    setDurAction | setLoadingAction | setErrorAction | setAssertionAction |
+    setMatchServerAction | setKeyTypeAction | setSampleAlgAction | 
+    setFakeMatchesAction | setDuplicatesAction | setModeAction |
+    setProxyClientIdAction | setProxyScopeAction | setProxyJWKAction
+
+const initialState: State = {
+    jwksUrl      : "",
+    jwks         : "",
+    jwksError    : "",
+    err          : "",
+    dur          : 0,
+    loading      : false,
+    error        : null,
+    assertion    : "",
+    matchServer  : "",
+    keyType      : "url",
+    sampleAlg    : "ES384",
+    fakeMatches  : 0,
+    duplicates   : 0,
+    mode         : "normal",
+    proxyClientId: "",
+    proxyJWK     : "",
+    proxyScope   : ""
+}
+
+function reducer(state: State, action: Action): State {
+    const { type, payload } = action
+    switch (type) {
+        case "setJwksUrl"      : return { ...state, jwksUrl      : payload }
+        case "setErr"          : return { ...state, err          : payload }
+        case "setDur"          : return { ...state, dur          : payload }
+        case "setLoading"      : return { ...state, loading      : payload }
+        case "setAssertion"    : return { ...state, assertion    : payload }
+        case "setMatchServer"  : return { ...state, matchServer  : payload }
+        case "setKeyType"      : return { ...state, keyType      : payload }
+        case "setSampleAlg"    : return { ...state, sampleAlg    : payload }
+        case "setFakeMatches"  : return { ...state, fakeMatches  : payload }
+        case "setDuplicates"   : return { ...state, duplicates   : payload }
+        case "setMode"         : return { ...state, mode         : payload }
+        case "setProxyClientId": return { ...state, proxyClientId: payload }
+        case "setProxyJWK"     : return { ...state, proxyJWK     : payload }
+        case "setProxyScope"   : return { ...state, proxyScope   : payload }
+        
+        case "setJwks": {
+            const out = { ...state, jwks: payload, jwksError: "" }
+            try {
+                const json = JSON.parse(payload)
+                if (!json || typeof json !== "object") {
+                    out.jwksError = "Not a JSON object"
+                }
+            } catch {
+                out.jwksError = "Not a valid JSON"
+            }
+            return out
+        }
+
+        
+
+        case "merge": return { ...state, ...payload }
     }
+    return state
 }
 
 export default function ClientRegistration() {
 
-    const [ jwksUrl    , setJwksUrl    ] = useState("")
-    const [ jwks       , setJwks       ] = useState("")
-    const [ jwksError  , setJwksError  ] = useState("")
-    const [ err        , setErr        ] = useState("")
-    const [ dur        , setDur        ] = useState(0)
-    const [ loading    , setLoading    ] = useState(false)
-    const [ error      , setError      ] = useState<Error | string | null>(null)
-    const [ assertion  , setAssertion  ] = useState("")
-    const [ matchServer, setMatchServer] = useState("")
-    const [ keyType    , setKeyType    ] = useState<"url" | "inline" | "sample" | "none">("url")
-    const [ sampleAlg  , setSampleAlg  ] = useState<"ES384" | "RS384">("ES384")
-    const [ fakeMatches, setFakeMatches] = useState(0)
-    const [ duplicates , setDuplicates ] = useState(0)
-    const [ mode       , setMode       ] = useState<"normal" | "fake" | "remote">("normal")
-    const [ headers    , setHeaders    ] = useState<[string, string][]>([])
+    const [state, dispatch] = useReducer(reducer, initialState)
+
+    const {
+        jwksUrl, jwks, jwksError, err, dur, loading, error, assertion,
+        matchServer, keyType, sampleAlg, fakeMatches, duplicates, mode,
+        proxyClientId, proxyJWK, proxyScope
+    } = state
+
+    const [ headers, setHeaders] = useState<[string, string][]>([])
 
     const cannotSubmit = !!(
         loading ||
@@ -41,8 +124,7 @@ export default function ClientRegistration() {
 
     function onSubmit(e: FormEvent) {
         e.preventDefault()
-        setLoading(true)
-        setError(null)
+        dispatch({ type: "merge", payload: { loading: true, err: "" }})
 
         let body = new URLSearchParams({ err, accessTokensExpireIn: dur + "" })
 
@@ -60,8 +142,10 @@ export default function ClientRegistration() {
             body.set("fakeMatches", fakeMatches + "")
             body.set("duplicates" , duplicates + "")
         } else if (mode === "remote") {
-            body.set("matchServer", matchServer)
-            body.set("matchHeaders", JSON.stringify(headers))
+            body.set("matchServer"  , matchServer  )
+            body.set("proxyClientId", proxyClientId)
+            body.set("proxyJWK"     , proxyJWK     )
+            body.set("proxyScope"   , proxyScope   )
         }
 
         fetch("/auth/register", {
@@ -77,23 +161,9 @@ export default function ClientRegistration() {
                 return txt
             })
         })
-        .then(result => setAssertion(result))
-        .catch(e => setError(e))
-        .finally(() => setLoading(false))
-    }
-
-    function validateAndSetJwks(str: string) {
-        setJwks(str)
-        try {
-            var json = JSON.parse(str)
-        } catch {
-            return setJwksError("Not a valid JSON")
-        }
-
-        if (!json || typeof json !== "object") {
-            return setJwksError("Not a JSON object")
-        }
-        setJwksError("")
+        .then(result => dispatch({ type: "setAssertion", payload: result }))
+        .catch(e => dispatch({ type: "setError", payload: e }))
+        .finally(() => dispatch({ type: "setLoading", payload: false }))
     }
 
     return (
@@ -106,28 +176,33 @@ export default function ClientRegistration() {
                 <div className="col-lg-6 mb-5">
                     <div className="form-check mb-3">
                         <label className="form-check-label">
-                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "url" } onChange={() => setKeyType("url")} />
+                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "url" } onChange={() => dispatch({ type: "setKeyType", payload: "url" })} />
                             Fetch the key from JWKS URL (<b>recommended</b>)
                             <div className="form-text mt-0">Provide an URL to your JWKS containing your public key(s)</div>
                         </label>
                     </div>
                     <div className="form-check mb-3">
                         <label className="form-check-label">
-                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "inline" } onChange={() => setKeyType("inline")} />
+                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "inline" } onChange={() => dispatch({ type: "setKeyType", payload: "inline" })} />
                             Provide the key now
                             <div className="form-text mt-0">Register your public key as JWK</div>
                         </label>
                     </div>
                     <div className="form-check mb-3">
                         <label className="form-check-label">
-                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "sample" } onChange={() => setKeyType("sample")} />
+                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "sample" } onChange={() => dispatch({ type: "setKeyType", payload: "sample" })} />
                             Use our example keys
                             <div className="form-text mt-0">Use our sample pair of keys (<span className="text-danger">for testing only</span>)</div>
                         </label>
                     </div>
                     <div className="form-check">
                         <label className="form-check-label">
-                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "none" } onChange={() => setKeyType("none")} />
+                            <input className="form-check-input" type="radio" name="keyType" checked={ keyType === "none" } onChange={() => {
+                                dispatch({ type: "setKeyType", payload: "none" });
+                                if (mode === "remote") {
+                                    dispatch({ type: "merge", payload: { mode: "normal", fakeMatches: 0, duplicates: 0 }})
+                                }
+                            }} />
                             None
                             <div className="form-text mt-0">Use the server without authentication</div>
                         </label>
@@ -136,7 +211,7 @@ export default function ClientRegistration() {
                 <div className="col-lg-6 mb-5">
                     { keyType === "url" && <>
                         <label htmlFor="jwks-url" className="form-label text-primary-emphasis">JWKS URL</label>
-                        <input type="url" className="form-control" id="jwks-url" value={jwksUrl} onChange={e => setJwksUrl(e.target.value)} placeholder="https://yourdomain.com/your-public-jwks.json" />
+                        <input type="url" className="form-control" id="jwks-url" value={jwksUrl} onChange={e => dispatch({ type: "setJwksUrl", payload: e.target.value })} placeholder="https://yourdomain.com/your-public-jwks.json" />
                         <div className="form-text small">
                             This URL communicates the TLS-protected endpoint where the client's public JWK Set can
                             be found. This endpoint SHALL be accessible without client authentication or authorization.
@@ -153,12 +228,12 @@ export default function ClientRegistration() {
                             whiteSpace: "pre",
                             lineHeight: 1.2,
                             fontSize: "13px"
-                        }} value={jwks} onChange={e => validateAndSetJwks(e.target.value)} />
+                        }} value={jwks} onChange={e => dispatch({ type: "setJwks", payload: e.target.value })} />
                     </> }
                     { keyType === "sample" && <>
                         <div className="input-group">
                             <span className="input-group-text">Key Type:</span>
-                            <select className="form-select" value={sampleAlg} onChange={e => setSampleAlg(e.target.value as any)}>
+                            <select className="form-select" value={sampleAlg} onChange={e => dispatch({ type: "setSampleAlg", payload: e.target.value as any })}>
                                 <option value="ES384">ES384</option>
                                 <option value="RS384">RS384</option>
                             </select>
@@ -185,7 +260,7 @@ export default function ClientRegistration() {
                 <div className="mb-4 mt-3 row">
                     <div className="col">
                         <label htmlFor="err" className="form-label text-primary-emphasis">Simulated Error</label>
-                        <select className="form-select" value={err} onChange={e => setErr(e.target.value)}>
+                        <select className="form-select" value={err} onChange={e => dispatch({ type: "setErr", payload: e.target.value })}>
                             <option value="">None</option>
                             <optgroup label="During Authentication">
                                 <option value="expired_registration_token">Expired client</option>
@@ -211,7 +286,7 @@ export default function ClientRegistration() {
                     </div>
                     <div className="col">
                         <label htmlFor="dur" className="form-label text-primary-emphasis">Access Token Lifetime</label>
-                        <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
+                        <select className="form-select" value={dur} onChange={e => dispatch({ type: "setDur", payload: +e.target.value })}>
                             <option value={0}>Auto (whatever the client specified)</option>
                             <option value={1}>1 minute</option>
                             <option value={5}>5 minutes</option>
@@ -230,9 +305,9 @@ export default function ClientRegistration() {
                 <div className="col">
                     <label className="form-label text-primary-emphasis">Match Mode</label>
                     <div className="btn-group w-100">
-                        <button type="button" className={"btn" + (mode === "normal" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("normal")}>Local Matches</button>
-                        <button type="button" className={"btn" + (mode === "fake"   ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("fake"  )}>Simulated Matches</button>
-                        <button type="button" className={"btn" + (mode === "remote" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => setMode("remote")}>Proxy Matches</button>
+                        <button type="button" className={"btn" + (mode === "normal" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => dispatch({ type: "setMode", payload: "normal" })}>Local Matches</button>
+                        <button type="button" className={"btn" + (mode === "fake"   ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => dispatch({ type: "setMode", payload: "fake"  })}>Simulated Matches</button>
+                        { keyType !== "none" && <button type="button" className={"btn" + (mode === "remote" ? " btn-primary bg-gradient active" : " border-secondary border-opacity-25")} onClick={() => dispatch({ type: "setMode", payload: "remote" })}>Proxy Matches</button> }
                     </div>
                 </div>
             </div>
@@ -249,14 +324,14 @@ export default function ClientRegistration() {
                             <label htmlFor="fakeMatches" className="text-primary-emphasis">Percentage of patients matched</label>
                             <span>{fakeMatches}%</span>
                         </div>
-                        <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => setFakeMatches(e.target.valueAsNumber)} min={0} max={100} step={10} />
+                        <input type="range" id="fakeMatches" className="form-range" value={fakeMatches} onChange={e => dispatch({ type: "setFakeMatches", payload: e.target.valueAsNumber })} min={0} max={100} step={10} />
                     </div>
                     <div className="col">
                         <div className="d-flex justify-content-between">
                             <label htmlFor="fakeDuplicates" className="text-primary-emphasis">Percentage with multiple matches</label>
                             <span>{duplicates}%</span>
                         </div>
-                        <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => setDuplicates(e.target.valueAsNumber)} min={0} max={50} step={5} />
+                        <input type="range" id="fakeDuplicates" className="form-range d-block" value={duplicates} onChange={e => dispatch({ type: "setDuplicates", payload: e.target.valueAsNumber })} min={0} max={50} step={5} />
                     </div>
                 </div>
             </> }
@@ -267,19 +342,23 @@ export default function ClientRegistration() {
                 </div>
                 <div className="my-4">
                     <label htmlFor="err" className="form-label text-primary-emphasis">FHIR Server Base URL</label>
-                    <input type="url" className="form-control" value={matchServer} onChange={e => setMatchServer(e.target.value)} name="url" required />
+                    <input type="url" className="form-control" value={matchServer} onChange={e => dispatch({ type: "setMatchServer", payload: e.target.value })} name="url" required />
                     <div className="form-text small">The server will proxy the individual matches within the bulk request to this server</div>
                 </div>
-                <div className="d-flex justify-content-between align-items-center flex-wrap my-2 border-bottom border-2 py-1">
-                    <label className="text-primary-emphasis">HTTP headers sent with each request</label>
-                    <button className="btn btn-sm border-success text-success border-opacity-25 btn-light" type="button" onClick={() => setHeaders([ ...headers, ["", ""] ])}>
-                        <i className="bi bi-plus-circle" /> Add Header
-                    </button>
+                <div className="my-4 row">
+                    <div className="col">
+                        <label className="form-label text-primary-emphasis">Client ID</label>
+                        <input type="text" className="form-control" name="proxy_client_id" value={proxyClientId} onChange={e => dispatch({ type: "setProxyClientId", payload: e.target.value })} />
+                        <div className="form-text small">The Client ID you have registered for this server</div>
+                        <label className="mt-4 form-label text-primary-emphasis">Scopes</label>
+                        <input type="text" className="form-control" name="proxy_scope" value={proxyScope} onChange={e => dispatch({ type: "setProxyScope", payload: e.target.value })} />
+                        <div className="form-text small">Space-separated list of one or more scopes to request</div>
+                    </div>
+                    <div className="col">
+                        <label className="form-label text-primary-emphasis">Private JWK</label>
+                        <textarea className="form-control" rows={6} placeholder="{ ...VALID JWK JSON... }" value={proxyJWK} onChange={e => dispatch({ type: "setProxyJWK", payload: e.target.value })} />
+                    </div>
                 </div>
-                <div className="form-text small mb-1">
-                    For example, to use an access token, add an authorization header with a value of "<code>Bearer {"{"}token{"}"}</code>".
-                </div>
-                <ParamList params={headers} onChange={headers => setHeaders([...headers])}/>
             </> }
             <div className="my-4 mt-5 bg-primary-subtle" style={{ height: 2 }} />
             
@@ -289,16 +368,15 @@ export default function ClientRegistration() {
 
             <label className="form-label text-primary-emphasis me-1">Bulk Patient Matching Endpoint</label>
             <div className="mb-4 form-control bg-light form-control-sm">
-                <code>{ BACKEND_BASE_URL + "/fhir/Patient/$bulk-match" }</code>
+                <code>{
+                    [
+                        BACKEND_BASE_URL,
+                        (fakeMatches > 0 ? fakeMatches + "-pct-matches" : ""),
+                        (fakeMatches > 0 && !!duplicates ? duplicates + "-pct-duplicates" : ""),
+                        "fhir/Patient/$bulk-match"
+                    ].filter(Boolean).join("/")
+                }</code>
             </div>
-
-            { keyType === "none" && <CustomHeadersList
-                mode={mode}
-                duplicates={duplicates}
-                fakeMatches={fakeMatches}
-                matchServer={matchServer}
-                headers={headers}
-            /> }
 
             { keyType !== "none" && !!assertion && <>
                 <div className="d-flex justify-content-between mb-1">
@@ -314,62 +392,11 @@ export default function ClientRegistration() {
     )
 }
 
-function CustomHeadersList({
-    mode,
-    matchServer,
-    fakeMatches,
-    duplicates,
-    headers = []
-}: {
-    mode: "remote" | "fake" | string
-    matchServer?: string
-    headers?: [string, string][]
-    fakeMatches?: number
-    duplicates?: number
-})
-{
-    if (mode !== "fake" && mode !== "remote") {
-        return null
+async function copy(txt: string) {
+    try {
+        await navigator.clipboard.writeText(txt);
+    } catch (err) {
+        console.error('Failed to copy text to clipboard:', err);
+        alert('Failed to copy text to clipboard.');
     }
-
-    if (mode === "remote" && !matchServer) {
-        return null
-    }
-
-    if (mode === "fake" && !fakeMatches) {
-        return null
-    }
-
-    const headersList = (mode === "remote" && matchServer) ?
-        cleanProxyHeaders(headers) :
-        [];
-
-    return (
-        <>
-            <label className="form-label text-primary-emphasis mb-0">Custom HTTP Headers</label>
-            <div className="form-text small mt-0 mb-1">
-            Customization settings are normally stored by registering a client.
-            To customize settings without having to register and authenticate,
-            include the following HTTP headers in the requests you make.
-            </div>
-            <div className="bg-light py-1 px-2 form-control form-control-sm">
-                { mode === "remote" && matchServer && <><code><b>x-proxy-url:</b> { matchServer }</code><br /></> }
-                { headersList.length > 0 && <><code><b>x-proxy-headers:</b> { JSON.stringify(headersList) }</code><br/></> }
-                { mode === "fake" && !!fakeMatches && <><code><b>x-pct-matches:</b> { fakeMatches }</code><br /></> }
-                { mode === "fake" && !!fakeMatches && !!duplicates && <><code><b>x-pct-duplicates:</b> { duplicates }</code><br/></> }
-            </div>
-        </>
-    )
-}
-
-
-function cleanProxyHeaders(arr: [string, string][]) {
-    return arr.filter(p => (
-        Array.isArray(p) && 
-        p.length    === 2 &&
-        typeof p[0] === "string" &&
-        typeof p[1] === "string" &&
-        !!p[0].trim() &&
-        !!p[1].trim()
-    ))
 }

@@ -8,13 +8,15 @@ import config               from "../src/config"
 
 
 interface BulkMatchRegistrationOptions {
-    jwks        ?: { keys: any[] }
-    jwks_url    ?: string
-    fakeMatches ?: number
-    duplicates  ?: number
-    err         ?: string
-    matchServer ?: string
-    matchHeaders?: [string, string][]
+    jwks         ?: { keys: any[] }
+    jwks_url     ?: string
+    fakeMatches  ?: number
+    duplicates   ?: number
+    err          ?: string
+    matchServer  ?: string
+    proxyClientId?: string
+    proxyScope   ?: string
+    proxyJWK     ?: any
 }
 
 interface BulkMatchClientOptions {
@@ -143,17 +145,28 @@ export default class BulkMatchClient
         onlySingleMatch,
         _outputFormat,
         count,
-        headers
+        headers,
+        fakeMatches,
+        fakeDuplicates
     }: {
         resource?: (fhir4.Patient | any)[]
         onlyCertainMatches?: any
         onlySingleMatch?: any
         count?: any
         _outputFormat?: any,
-        headers?: HeadersInit
+        headers?: HeadersInit,
+        fakeMatches?: number,
+        fakeDuplicates?: number
     } = {})
     {
-        const url = `${this.options.baseUrl}/fhir/Patient/$bulk-match`
+        let url = this.options.baseUrl
+        if (fakeMatches) {
+            url += `/${fakeMatches}`
+            if (fakeDuplicates) {
+                url += `/${fakeDuplicates}`
+            }
+        }
+        url += "/fhir/Patient/$bulk-match"
 
         const body: fhir4.Parameters = {
             resourceType: "Parameters",

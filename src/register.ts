@@ -52,9 +52,19 @@ export function register(req: Request, res: Response) {
         jwtToken.matchServer = matchServer
     }
 
-    const matchHeaders = JSON.parse(req.body.matchHeaders || "null")
-    if (Array.isArray(matchHeaders)) {
-        jwtToken.matchHeaders = matchHeaders
+    const { proxyClientId } = req.body
+    if (proxyClientId) {
+        jwtToken.proxyClientId = proxyClientId
+    }
+
+    const { proxyScope } = req.body
+    if (proxyScope) {
+        jwtToken.proxyScope = proxyScope
+    }
+
+    const { proxyJWK } = req.body
+    if (proxyJWK) {
+        jwtToken.proxyJWK = JSON.parse(proxyJWK)
     }
 
     // Reply with signed token as text

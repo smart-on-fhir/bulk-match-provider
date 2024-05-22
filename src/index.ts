@@ -36,7 +36,7 @@ app.post("/auth/register", urlencoded({ extended: false }), register)
 app.post("/auth/token", urlencoded({ extended: false }), tokenHandler)
 
 // bulk-match and other fhir endpoints
-app.use("/fhir", FHIRRouter)
+app.use(["/fhir", "/:match/fhir", "/:match/:duplicate/fhir"], FHIRRouter)
 
 // get job status
 app.get("/jobs/:id/status", checkAuth, asyncRouteWrap(Gateway.checkStatus))
@@ -86,10 +86,14 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
         if (error.type === "invalid_client" && !res.headersSent && req.headers.authorization) {
             res.setHeader("WWW-Authenticate", "Bearer")
         }
-        res.status(error.code).json({
+        return res.status(error.code).json({
             error: error.type,
             error_description: error.message
         });
+    }
+
+    if (error && typeof error === "object" && error.resourceType === "OperationOutcome") {
+        return res.status(["fatal", "error"].includes(error.issue[0].severity) ? 500 : 400).json(error)
     }
 
     if (!error.http) {

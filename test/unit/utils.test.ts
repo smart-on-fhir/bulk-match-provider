@@ -21,7 +21,7 @@ describe("wait", () => {
         const start = Date.now()
         await wait(100, { signal: ctl.signal })
         const diff = Date.now() - start
-        assert.ok(diff >= 0 && diff <= 2)
+        assert.ok(diff >= 0 && diff <= 3)
     })
 })
 

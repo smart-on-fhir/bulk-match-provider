@@ -337,7 +337,9 @@ describe("API", () => {
                         duplicates          : "44",
                         err                 : "my-err",
                         matchServer         : "http://whatever.dev",
-                        matchHeaders        : '[["a-name","a-value"],["b-name","b-value"]]'
+                        proxyClientId       : "proxy-client-id",
+                        proxyScope          : "proxy-scope",
+                        proxyJWK            : '{"a":3}'
                     })
                 })
                 assert.equal(res.status, 200)
@@ -350,7 +352,9 @@ describe("API", () => {
                 assert.equal(token.duplicates, 44)
                 assert.equal(token.err, "my-err")
                 assert.equal(token.matchServer, "http://whatever.dev")
-                assert.deepEqual(token.matchHeaders, [["a-name","a-value"],["b-name","b-value"]])
+                assert.equal(token.proxyClientId, "proxy-client-id")
+                assert.equal(token.proxyScope, "proxy-scope")
+                assert.deepEqual(token.proxyJWK, {"a":3})
             })
         })
 
@@ -1923,25 +1927,87 @@ describe("API", () => {
     })
 
     describe("Proxy to external match server", function() {
-        // this.timeout(15000)
+        this.timeout(15000)
 
-        it ("passes access token to the remote server", async () => {
-
-            const matchToken = faker.string.hexadecimal({ length: 10 })
-
-            let receivedHeader = ""
-
-            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
-                handler(req, res) {
-                    receivedHeader = req.headers.authorization + ""
-                    res.json({
-                        resourceType: "Bundle",
-                        id: faker.string.uuid(),
-                        type: "searchset",
-                        total: 0,
-                        entry: []
-                    })
+        it ("Error if the remote server replies with non-json content-type", async () => {
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, { body: "test" })
+            const client = new BulkMatchClient({
+                baseUrl,
+                privateKey: PRIVATE_KEY,
+                registrationOptions: {
+                    jwks: { keys: [ PUBLIC_KEY ] },
+                    matchServer: mockServer.baseUrl,
+                    proxyClientId: ""
                 }
+            })
+            await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
+            const manifest = await client.waitForCompletion()
+            assert.equal(manifest.output.length, 1)
+            const ndjson = await client.download(0)
+            const json = JSON.parse(ndjson)
+            expectOperationOutcome(json.entry[0], { diagnostics: "Error: The remote server did not reply with JSON. Got the following response as text: test" })
+        })
+
+        it ("Error if the remote server replies with empty response", async () => { 
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+                body: "",
+                headers: {
+                    "content-type": "application/json"
+                }
+            })
+            const client = new BulkMatchClient({
+                baseUrl,
+                privateKey: PRIVATE_KEY,
+                registrationOptions: {
+                    jwks: { keys: [ PUBLIC_KEY ] },
+                    matchServer  : mockServer.baseUrl,
+                    proxyClientId: ""
+                }
+            })
+            await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
+            const manifest = await client.waitForCompletion()
+            assert.equal(manifest.output.length, 1)
+            const ndjson = await client.download(0)
+            const json = JSON.parse(ndjson)
+            expectOperationOutcome(json.entry[0], { diagnostics: "Error: The remote server replied with empty response" })
+        })
+
+        it ("Error if the remote server replies with invalid JSON", async () => {
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+                body: "{a:b}",
+                headers: {
+                    "content-type": "application/json"
+                }
+            })
+            const client = new BulkMatchClient({
+                baseUrl,
+                privateKey: PRIVATE_KEY,
+                registrationOptions: {
+                    jwks: { keys: [ PUBLIC_KEY ] },
+                    matchServer  : mockServer.baseUrl,
+                    proxyClientId: ""
+                }
+            })
+            await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
+            const manifest = await client.waitForCompletion()
+            assert.equal(manifest.output.length, 1)
+            const ndjson = await client.download(0)
+            const json = JSON.parse(ndjson)
+            expectOperationOutcome(json.entry[0], { diagnostics: /The remote server response could not be parsed as JSON/ })
+        })
+
+        it ("Appends remote OperationOutcomes to the results bundle", async () => {
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+                handler: (req, res) => res.json({
+                    "resourceType":"OperationOutcome",
+                    "issue": [
+                        {
+                            "severity": "error",
+                            "code": "processing",
+                            "diagnostics": "Test error message"
+                        }
+                    ]
+                })
             })
 
             const client = new BulkMatchClient({
@@ -1949,21 +2015,24 @@ describe("API", () => {
                 privateKey: PRIVATE_KEY,
                 registrationOptions: {
                     jwks: { keys: [ PUBLIC_KEY ] },
-                    matchServer: mockServer.baseUrl,
-                    matchHeaders: [["authorization", "Bearer " + matchToken]]
+                    matchServer  : mockServer.baseUrl,
+                    proxyClientId: ""
                 }
             })
 
             await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
-            await wait(600)
-            assert.equal(receivedHeader, "Bearer " + matchToken)
+            const manifest = await client.waitForCompletion()
+            assert.equal(manifest.output.length, 1)
+            const ndjson = await client.download(0)
+            const json = JSON.parse(ndjson)
+            expectOperationOutcome(json.entry[0], { diagnostics: "Test error message" })
         })
 
         it ("expects the remote server to return a bundle", async () => {
 
             mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
                 handler(req, res) {
-                    res.json({ resourceType: "OperationOutcome" })
+                    res.json({ resourceType: "Patient" })
                 }
             })
 
@@ -1977,7 +2046,10 @@ describe("API", () => {
             })
 
             await client.kickOff({ resource: [{ resourceType: "Patient", id: "#1" }] })
-            await assert.rejects(client.waitForCompletion(), /The remote server did not reply with a Bundle/)
+            await client.waitForCompletion()
+            const ndjson = await client.download(0)
+            const json = JSON.parse(ndjson)
+            expectOperationOutcome(json.entry[0], { diagnostics: /The remote server did not reply with a Bundle/ })
         })
 
         it ("basic use", async () => {
@@ -2066,6 +2138,89 @@ describe("API", () => {
                 `Patient/#3`
             )
         })
+
+        it ("Proxy using x-proxy-url", async () => {
+
+            function randomPatientMatchEntry() {
+                const patientId = faker.string.uuid()
+                return {
+                    fullUrl: `${mockServer.baseUrl}/Patient/${patientId}`,
+                    resource: {
+                        resourceType: "Patient",
+                        id: patientId
+                    },
+                    search: {
+                        extension: [{
+                            url: "http://hl7.org/fhir/StructureDefinition/match-grade",
+                            valueCode: "certain"
+                        }],
+                        mode: "match",
+                        score: faker.number.float({ min: 0.6, max: 1 })
+                    }
+                }
+            }
+            
+            mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
+                handler(req, res) {
+                    res.json({
+                        resourceType: "Bundle",
+                        id: faker.string.uuid(),
+                        type: "searchset",
+                        total: 2,
+                        entry: [
+                            randomPatientMatchEntry(),
+                            randomPatientMatchEntry()
+                        ]
+                    })
+                }
+            })
+    
+            const client = new BulkMatchClient({ baseUrl })
+    
+            await client.kickOff({
+                resource: [
+                    { resourceType: "Patient", id: "#1" },
+                    { resourceType: "Patient", id: "#2" },
+                    { resourceType: "Patient", id: "#3" },
+                ],
+                count: 100,
+                headers: {
+                    "x-proxy-url": mockServer.baseUrl
+                }
+            })
+    
+            await expectResult(client, {
+                numberOfFiles: 2,
+                numberOfBundles: 3,
+                numberOfMatches: [2, 2, 2]
+            })
+    
+            const txt1   = await client.download(0)
+            const txt2   = await client.download(1)
+            const bundles = txt1.split(/\n/).filter(Boolean).concat(txt2.split(/\n/).filter(Boolean)).map(l => JSON.parse(l))
+    
+            // console.log(bundles)
+    
+            assert.equal(bundles[0].total, 2)
+            assert.equal(
+                bundles[0].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+                `Patient/#1`
+            )
+            
+            
+            assert.equal(bundles[1].total, 2)
+            assert.equal(
+                bundles[1].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+                `Patient/#2`
+            )
+    
+    
+            assert.equal(bundles[2].total, 2)
+            assert.equal(
+                bundles[2].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
+                `Patient/#3`
+            )
+        })
     })
 
     it ("Can simulate match_error errors", async () => {
@@ -2128,152 +2283,6 @@ describe("API", () => {
             client.waitForCompletion(),
             /Match job failed because less than \d+% of the matches ran successfully/
         )
-    })
-
-    it ("Proxy using x-proxy-url", async () => {
-
-        function randomPatientMatchEntry() {
-            const patientId = faker.string.uuid()
-            return {
-                fullUrl: `${mockServer.baseUrl}/Patient/${patientId}`,
-                resource: {
-                    resourceType: "Patient",
-                    id: patientId
-                },
-                search: {
-                    extension: [{
-                        url: "http://hl7.org/fhir/StructureDefinition/match-grade",
-                        valueCode: "certain"
-                    }],
-                    mode: "match",
-                    score: faker.number.float({ min: 0.6, max: 1 })
-                }
-            }
-        }
-        
-        mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
-            handler(req, res) {
-                res.json({
-                    resourceType: "Bundle",
-                    id: faker.string.uuid(),
-                    type: "searchset",
-                    total: 2,
-                    entry: [
-                        randomPatientMatchEntry(),
-                        randomPatientMatchEntry()
-                    ]
-                })
-            }
-        })
-
-        const client = new BulkMatchClient({ baseUrl })
-
-        await client.kickOff({
-            resource: [
-                { resourceType: "Patient", id: "#1" },
-                { resourceType: "Patient", id: "#2" },
-                { resourceType: "Patient", id: "#3" },
-            ],
-            count: 100,
-            headers: {
-                "x-proxy-url": mockServer.baseUrl
-            }
-        })
-
-        await expectResult(client, {
-            numberOfFiles: 2,
-            numberOfBundles: 3,
-            numberOfMatches: [2, 2, 2]
-        })
-
-        const txt1   = await client.download(0)
-        const txt2   = await client.download(1)
-        const bundles = txt1.split(/\n/).filter(Boolean).concat(txt2.split(/\n/).filter(Boolean)).map(l => JSON.parse(l))
-
-        // console.log(bundles)
-
-        assert.equal(bundles[0].total, 2)
-        assert.equal(
-            bundles[0].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
-            `Patient/#1`
-        )
-        
-        
-        assert.equal(bundles[1].total, 2)
-        assert.equal(
-            bundles[1].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
-            `Patient/#2`
-        )
-
-
-        assert.equal(bundles[2].total, 2)
-        assert.equal(
-            bundles[2].meta.extension.find((e: any) => e.url === "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/match-resource").valueReference.reference,
-            `Patient/#3`
-        )
-    })
-    
-    it ("Proxy using x-proxy-url plus x-proxy-headers", async () => {
-
-        let sentHeaders: any = {}
-
-        mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
-            handler(req, res) {
-                sentHeaders = req.headers
-                res.json({
-                    resourceType: "Bundle",
-                    type: "searchset",
-                    total: 0,
-                    entry: []
-                })
-            }
-        })
-
-        const client = new BulkMatchClient({ baseUrl })
-
-        await client.kickOff({
-            resource: [{ resourceType: "Patient", id: "#1" }],
-            headers: {
-                "x-proxy-url": mockServer.baseUrl,
-                "x-proxy-headers": '[["x-a","a"],["x-b","b"],["x-c",""]]'
-            }
-        })
-
-        await client.waitForCompletion()
-
-        assert.deepEqual(sentHeaders["x-a"], "a")
-        assert.deepEqual(sentHeaders["x-b"], "b")
-        assert.ok(sentHeaders.hasOwnProperty("x-c") === false)
-    })
-
-    it ("Rejects x-proxy-headers if not an array", async () => {
-
-        mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
-            handler(req, res) {
-                res.json({
-                    resourceType: "Bundle",
-                    type: "searchset",
-                    total: 0,
-                    entry: []
-                })
-            }
-        })
-
-        const client = new BulkMatchClient({ baseUrl })
-
-        await client.kickOff({
-            resource: [{ resourceType: "Patient", id: "#1" }],
-            headers: {
-                "x-proxy-url": mockServer.baseUrl,
-                "x-proxy-headers": '"whatever"'
-            }
-        })
-
-        await expectResult(client, {
-            numberOfFiles: 1,
-            numberOfBundles: 1,
-            numberOfMatches: [0]
-        })
     })
     
     it ("percentFakeMatches with open server", async () => {

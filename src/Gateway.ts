@@ -179,10 +179,9 @@ export async function kickOff(req: app.Request, res: Response) {
 
     validateMatchHeaders(req.headers)
 
-    const duplicates = uInt(req.headers["x-pct-duplicates"] ?? req.registeredClient?.duplicates)
-    const matches = uInt(req.headers["x-pct-matches"] ?? req.registeredClient?.fakeMatches)
+    const duplicates = uInt(req.params.duplicate ?? req.headers["x-pct-duplicates"] ?? req.registeredClient?.duplicates )
+    const matches    = uInt(req.params.match     ?? req.headers["x-pct-matches"]    ?? req.registeredClient?.fakeMatches)
     const matchServer = req.headers["x-proxy-url"] ?? req.registeredClient?.matchServer  ?? ""
-    const matchHeaders = parseProxyHeaders(req)
 
     const params = getMatchParameters(req.body as fhir4.Parameters)
     const baseUrl = getRequestBaseURL(req);
@@ -192,7 +191,9 @@ export async function kickOff(req: app.Request, res: Response) {
         percentFakeMatches   : +matches,
         simulatedError       : req.registeredClient?.err ?? "",
         matchServer          : matchServer + "",
-        matchHeaders
+        proxyClientId        : req.registeredClient?.proxyClientId || "",
+        proxyJWK             : req.registeredClient?.proxyJWK      || null,
+        proxyScope           : req.registeredClient?.proxyScope    || ""
     })
 
     // Don't wait for this (just start it here), but also don't crash the server
@@ -208,26 +209,6 @@ export async function kickOff(req: app.Request, res: Response) {
             { severity: "information" }
         )
     )
-}
-
-function parseProxyHeaders(req: app.Request) {
-    const list = String(req.headers["x-proxy-headers"] || "").trim()
-    try {
-        const arr = JSON.parse(list)
-        if (!Array.isArray(arr)) {
-            throw new Error("x-proxy-headers is not an array")
-        }
-        return arr.filter(p => (
-            Array.isArray(p) && 
-            p.length === 2 &&
-            p[0] &&
-            p[1] &&
-            typeof p[0] === "string" &&
-            typeof p[1] === "string"
-        ))
-    } catch {
-        return req.registeredClient?.matchHeaders ?? []
-    }
 }
 
 function validateMatchHeaders(headers: IncomingHttpHeaders) {
