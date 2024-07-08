@@ -3,6 +3,9 @@ import ClientRegistration      from "./ClientRegistration"
 import ServerInfo              from "./ServerInfo"
 import "./style.scss"
 
+// @ts-ignore
+import logo from "../../static/img/logo.svg"
+
 
 export default function App() {
     const [tabIndex, setTabIndex] = useState(1);
@@ -25,7 +28,8 @@ export default function App() {
                 <div className="container">
                     <h1 className="navbar-brand m-0">
                         <a className="navbar-brand text-primary-emphasis" href="/" style={{ textShadow: "0 1px 1px #FFF" }}>
-                            <i className="bi bi-fire me-1" />
+                            {/* <i className="bi bi-fire me-1" /> */}
+                            <img src={logo} width="66" style={{ margin: "-20px 6px -20px 0" }} />
                             Bulk Match Provider
                         </a>
                     </h1>

@@ -19,6 +19,9 @@ import {
 } from "./State"
 import "./style.scss"
 
+// @ts-ignore
+import logo from "../../../static/img/logo-light.svg"
+
 
 export default function App() {
     const [state, dispatch] = useReducer(reducer, initialState);
@@ -39,7 +42,7 @@ export default function App() {
             <nav className="navbar sticky-top navbar-expand-lg bg-primary">
                 <div className="container">
                     <a className="navbar-brand text-white" href="/">
-                        <i className="bi bi-fire me-1" />
+                        <img src={logo} width="56" style={{ margin: "-20px 6px -20px 0" }} />
                         Bulk-Match <small className="opacity-50">Sample App</small>
                     </a>
                     <button
