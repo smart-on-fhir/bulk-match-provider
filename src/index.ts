@@ -131,7 +131,11 @@ async function main(): Promise<{
 
 // istanbul ignore next
 if (require.main === module) {
-    main().then(({ address }) => console.log(`Server listening at ${address}`));
+    main().then(({ address }) => {
+        if (!process.env.CONTAINER) {
+            console.log(`Server listening at ${address}`)
+        }
+    });
 }
 
 export default main;

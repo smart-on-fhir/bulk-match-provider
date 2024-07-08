@@ -118,3 +118,14 @@ dates equal if they represent the same year, month, and day, ignoring the time p
 can also be loosely specified as `YYYY` or `YYYY-MM`. This means that, for example,
 we would match all of the following dates as equal: `2020`, `2020-01`,
 `2020-01-01`, `2020-01-01T10:12:34`.
+
+## Using Docker
+This project also comes with a Docker file which makes it easy to run it anywhere.
+To build the image run:
+```
+docker build --tag=bulk-match-provider .
+```
+And to run it on port `8080` you can do:
+```
+docker run -it -p 8080:80 --rm bulk-match-provider
+```
