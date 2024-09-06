@@ -44,7 +44,7 @@
   },
   "homepage": "https://github.com/smart-on-fhir/bulk-match-provider#readme",
   "engines": {
-    "node": ">=20"
+    "node": "20"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",
