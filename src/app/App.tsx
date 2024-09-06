@@ -53,7 +53,7 @@ export default function App() {
                                 <a className={"nav-link" + (tabIndex === 0 ? " active bg-gradient" : "")} onClick={(e) => { e.preventDefault(); setTabIndex(0); }} href="#">Server Info</a>
                             </li>
                             <li className="nav-item">
-                                <a className="nav-link" href="./sample-app" target="_blank">
+                                <a className="nav-link" href="/sample-app" target="_blank">
                                     <b>Sample App<i className="bi bi-box-arrow-up-right ms-2" /></b>
                                 </a>
                             </li>
