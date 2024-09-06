@@ -371,8 +371,8 @@ export default function ClientRegistration() {
                 <code>{
                     [
                         BACKEND_BASE_URL,
-                        (fakeMatches > 0 ? fakeMatches + "-pct-matches" : ""),
-                        (fakeMatches > 0 && !!duplicates ? duplicates + "-pct-duplicates" : ""),
+                        (mode === "fake" && fakeMatches > 0 ? fakeMatches + "-pct-matches" : ""),
+                        (mode === "fake" && fakeMatches > 0 && !!duplicates ? duplicates + "-pct-duplicates" : ""),
                         "fhir/Patient/$bulk-match"
                     ].filter(Boolean).join("/")
                 }</code>
