@@ -46,7 +46,7 @@ export default function ServerInfo() {
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Well-Known SMART Configuration</dt>
                 <dd className="mb-4">
-                    <code><NewTabLink href={ BACKEND_BASE_URL  + "/.well-known/smart-configuration" }/></code>
+                    <code><NewTabLink href={ BACKEND_BASE_URL  + "/fhir/.well-known/smart-configuration" }/></code>
                     <div className="small text-secondary"></div>
                 </dd>
                 <dt><i className="bi bi-arrow-right-circle-fill text-success me-2" />Authentication Keys</dt>
