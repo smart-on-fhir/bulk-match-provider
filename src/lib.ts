@@ -44,10 +44,16 @@ export function uInt(x: any, defaultValue = 0) {
  * Creates and returns a route-wrapper function that allows for using an async
  * route handlers without try/catch.
  */
-export function asyncRouteWrap(fn: RequestHandler) {
-    return (req: Request, res: Response, next: NextFunction) => Promise.resolve(
-        fn(req, res, next)
-    ).catch(next);
+export function asyncRouteWrap(
+    fn: (req: Request, res: Response, next: NextFunction) => any
+): RequestHandler {
+    return (req, res, next) => {
+        try {
+            Promise.resolve(fn(req, res, next)).catch(next);
+        } catch (err) {
+            next(err);
+        }
+    };
 }
 
 /**

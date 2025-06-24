@@ -1,6 +1,6 @@
 {
   "name": "bulk-match-provider",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Bulk Match Provider",
   "app": "./src/app/index.html",
   "scripts": {
@@ -47,19 +47,19 @@
     "node": "20"
   },
   "dependencies": {
-    "@faker-js/faker": "^8.4.1",
+    "@faker-js/faker": "^9.8.0",
     "@parcel/transformer-sass": "^2.12.0",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
-    "concurrently": "^8.2.2",
+    "concurrently": "^9.2.0",
     "constants-browserify": "^1.0.0",
     "cors": "^2.8.5",
     "crypto-browserify": "^3.12.0",
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.5.0",
     "events": "^3.3.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "jwk-to-pem": "^2.0.5",
+    "jwk-to-pem": "^2.0.7",
     "moment": "^2.30.1",
     "nyc": "^15.1.0",
     "parcel": "^2.12.0",
@@ -72,23 +72,24 @@
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.2",
-    "url": "^0.11.3",
+    "typescript": "^5.8.3",
+    "url": "^0.11.4",
     "util": "^0.12.5",
     "vm-browserify": "^1.1.2"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
+    "@parcel/transformer-raw": "^2.15.4",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
     "@types/fhir": "^0.0.41",
-    "@types/jsonwebtoken": "^9.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/jwk-to-pem": "^2.0.3",
-    "@types/mocha": "^10.0.6",
-    "@types/node": "^20.11.26",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.0.4",
     "@types/proper-lockfile": "^4.1.4",
-    "@types/react": "^18.2.65",
-    "@types/react-dom": "^18.2.21",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
     "mocha": "^10.8.2",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.10"
   }
 }

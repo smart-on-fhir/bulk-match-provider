@@ -55,14 +55,14 @@ export default function RequestView({ request }: { request: Request }) {
                 
             </h5>
             { result && <b className={ "ms-2 badge my-0 " + (
-                    result.response.status >= 200 && result.response.status < 300 ?
+                    result.response?.status >= 200 && result.response?.status < 300 ?
                         "text-success border-success-subtle border" :
-                        result.response.status >= 300 && result.response.status < 400 ?
+                        result.response?.status >= 300 && result.response?.status < 400 ?
                             "text-info border-info-subtle border":
-                            result.response.status >= 400 ?
+                            result.response?.status >= 400 ?
                                 "text-bg-danger" :
                                 "text-secondary border-secondary-subtle border"
-                )}>{result.response.status} {result.response.statusText}</b> }
+                )}>{result.response?.status} {result.response?.statusText}</b> }
             </>
         }>
             { error && <div className="alert alert-danger font-monospace small p-2 my-2">{ error + " test" }</div> }

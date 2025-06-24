@@ -29,13 +29,15 @@ export default function(req: Request, res: Response) {
     if (query._format) {
         let format = String(query._format).toLowerCase();
         if (!SUPPORTED_FORMATS.some(mime => format.indexOf(mime) === 0)) {
-            return res.status(400).json(createOperationOutcome("Only json format is supported"))
+            res.status(400).json(createOperationOutcome("Only json format is supported"))
+            return
         }
     }
 
     const accept = String(req.headers.accept || "*/*").toLowerCase().split(/\s*[;,]\s*/).shift();
     if (!SUPPORTED_ACCEPT_MIME_TYPES.some(f => f === accept)) {
-        return res.status(400).json(createOperationOutcome("Only json format is supported"))
+        res.status(400).json(createOperationOutcome("Only json format is supported"))
+        return
     }
 
     const baseUrl = getRequestBaseURL(req)

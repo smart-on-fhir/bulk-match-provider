@@ -1998,16 +1998,18 @@ describe("API", () => {
 
         it ("Appends remote OperationOutcomes to the results bundle", async () => {
             mockServer.mock({ method: "post", path: "/Patient/\\$match" }, {
-                handler: (req, res) => res.json({
-                    "resourceType":"OperationOutcome",
-                    "issue": [
-                        {
-                            "severity": "error",
-                            "code": "processing",
-                            "diagnostics": "Test error message"
-                        }
-                    ]
-                })
+                handler: (req, res) => {
+                    res.json({
+                        "resourceType":"OperationOutcome",
+                        "issue": [
+                            {
+                                "severity": "error",
+                                "code": "processing",
+                                "diagnostics": "Test error message"
+                            }
+                        ]
+                    })
+                }
             })
 
             const client = new BulkMatchClient({

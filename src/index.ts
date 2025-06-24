@@ -29,7 +29,7 @@ app.use(cors({ origin: true, credentials: true }))
 app.use(json());
 
 // throttle if needed
-app.use((_rec, _res, next: NextFunction) => setTimeout(next, config.throttle));
+app.use((_rec, _res, next: NextFunction) => { setTimeout(next, config.throttle) });
 
 // auth
 app.post("/auth/register", urlencoded({ extended: false }), register)
@@ -57,14 +57,16 @@ app.get("/jobs", asyncRouteWrap(Gateway.listJobs))
 app.get("/patients", (req, res) => res.sendFile(join(__dirname, "../data/patients.ndjson")))
 
 // The app will need to red some config vars
-app.get("/config", (req, res) => res.json({
-    supportedAlgorithms        : config.supportedAlgorithms,
-    jobMaxLifetimeMinutes      : config.jobMaxLifetimeMinutes,
-    completedJobLifetimeMinutes: config.completedJobLifetimeMinutes,
-    resourceParameterLimit     : config.resourceParameterLimit
-}))
+app.get("/config", (req, res) => {
+    res.json({
+        supportedAlgorithms        : config.supportedAlgorithms,
+        jobMaxLifetimeMinutes      : config.jobMaxLifetimeMinutes,
+        completedJobLifetimeMinutes: config.completedJobLifetimeMinutes,
+        resourceParameterLimit     : config.resourceParameterLimit
+    })
+})
 
-app.get("/env", (req, res) => res.json({ VERSION: pkg.version }))
+app.get("/env", (req, res) => { res.json({ VERSION: pkg.version }) })
 
 // Static
 app.use(express.static(join(__dirname, "../static/")));
@@ -86,14 +88,16 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
         if (error.type === "invalid_client" && !res.headersSent && req.headers.authorization) {
             res.setHeader("WWW-Authenticate", "Bearer")
         }
-        return res.status(error.code).json({
+        res.status(error.code).json({
             error: error.type,
             error_description: error.message
         });
+        return
     }
 
     if (error && typeof error === "object" && error.resourceType === "OperationOutcome") {
-        return res.status(["fatal", "error"].includes(error.issue[0].severity) ? 500 : 400).json(error)
+        res.status(["fatal", "error"].includes(error.issue[0].severity) ? 500 : 400).json(error)
+        return
     }
 
     if (!error.http) {
