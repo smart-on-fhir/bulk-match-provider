@@ -20,7 +20,7 @@ import {
 import "./style.scss"
 
 // @ts-ignore
-import logo from "../../../static/img/logo-light.svg"
+import logo from "../../../static/img/logo-light.svg?raw"
 
 
 export default function App() {
