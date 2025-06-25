@@ -13,8 +13,7 @@
     "dev": "npm run clean:app && npm run clean:server && PORT=3456 concurrently npm:start:app npm:watch:server",
     "start": "npm run clean:app && npm run clean:server && npm run build:app && npm run start:server",
     "test": "DOTENV_CONFIG_PATH=.env.test nyc --reporter=lcov mocha -r ts-node/register",
-    "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'",
-    "heroku-postbuild": "npm run build:app"
+    "test:watch": "nodemon -w ./test -w ./src -e ts,json -x 'npm test'"
   },
   "targets": {
     "app": {
