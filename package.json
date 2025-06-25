@@ -5,7 +5,7 @@
   "app": "./src/app/index.html",
   "scripts": {
     "start:app": "NODE_ENV=development parcel serve --target app --target sample-app --port 3457 --no-cache",
-    "build:app": "parcel build --target app --target sample-app",
+    "build:app": "parcel build --target app --target sample-app --no-cache",
     "clean:app": "rm -rf ./dist/*",
     "start:server": "ts-node --transpile-only ./src/index.ts",
     "watch:server": "nodemon -w ./src -e ts,json -x 'npm run start:server'",
@@ -18,7 +18,7 @@
   "targets": {
     "app": {
       "source": "./src/app/index.html",
-      "distDir": "./dist",
+      "distDir": "./dist/",
       "context": "browser",
       "outputFormat": "global",
       "isLibrary": false
