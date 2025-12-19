@@ -26,7 +26,7 @@ const app = express()
 app.use(cors({ origin: true, credentials: true }))
 
 // Automatically parse incoming JSON payloads
-app.use(json());
+app.use(json({ type: ["application/fhir+json", "application/json+fhir", "application/json"] }));
 
 // throttle if needed
 app.use((_rec, _res, next: NextFunction) => { setTimeout(next, config.throttle) });

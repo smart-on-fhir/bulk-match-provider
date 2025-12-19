@@ -944,7 +944,7 @@ describe("API", () => {
             const res = await fetch(`${baseUrl}/fhir/Patient/$bulk-match`, {
                 method: "POST",
                 body: '{"parameter":3}',
-                headers: { accept: "application/fhir+ndjson" }
+                headers: { accept: "application/fhir+ndjson", "content-type": "application/fhir+json" }
             })
             assert.equal(res.status, 400)
             const json = await res.json()

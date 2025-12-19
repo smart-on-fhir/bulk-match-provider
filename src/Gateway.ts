@@ -45,30 +45,33 @@ export async function checkStatus(req: app.Request, res: Response) {
     }
 
     if (req.registeredClient?.err === "transient_status_error") {
-        return res.status(500).json(createOperationOutcome(
+        res.status(500).json(createOperationOutcome(
             "The job is currently failing but you can still retry later (simulated error)",
             {
                 severity : "error",
                 issueCode: "transient"
             }
         ))
+        return 
     }
 
     try {
         var job = await Job.byId(req.params.id)
     } catch (ex) {
-        return res.status(404).json(createOperationOutcome(ex))
+        res.status(404).json(createOperationOutcome(ex))
+        return
     }
 
     if (job.error) {
-        return res.status(500).json(createOperationOutcome(job.error, { severity: "error" }))
+        res.status(500).json(createOperationOutcome(job.error, { severity: "error" }))
+        return
     }
 
     if (job.percentage === 100) {
         
         if (job.successScore < config.successThreshold) {
             await job.destroy()
-            return res.status(500).json(createOperationOutcome(
+            res.status(500).json(createOperationOutcome(
                 `Match job failed because less than ${
                     Math.round(config.successThreshold * 100)
                 }% of the matches ran successfully`,
@@ -76,10 +79,11 @@ export async function checkStatus(req: app.Request, res: Response) {
             ))
         }
 
-        return res.setHeader(
+        res.setHeader(
             "Expires",
             new Date(job.completedAt + config.completedJobLifetimeMinutes * 60_000).toUTCString()
         ).json(job.manifest)
+        return
     }
 
     const release = await Job.lock(job.id)
@@ -106,19 +110,21 @@ export async function checkStatus(req: app.Request, res: Response) {
             if (retryAfter > (RETRY_AFTER / 1000) * 10) {
                 await release()
                 await job.destroy()
-                return res.status(429).json(createOperationOutcome(
+                res.status(429).json(createOperationOutcome(
                     "Too many requests made ignoring the retry-after header hint. Session terminated!",
                     { severity: "fatal" }
                 ))
+                return
             }
 
             await job.save("updated notBefore", true)
             await release()
             res.header("Retry-after", retryAfter + "")
-            return res.status(429).json(createOperationOutcome(
+            res.status(429).json(createOperationOutcome(
                 "Too many requests made. Please respect the retry-after header!",
                 { severity: "warning" }
             ))
+            return
         }
     }
 
@@ -139,7 +145,8 @@ export async function downloadFile(req: app.Request, res: Response) {
     try {
         var job = await Job.byId(req.params.id)
     } catch (ex) {
-        return res.status(404).json(createOperationOutcome("Export job not found"))
+        res.status(404).json(createOperationOutcome("Export job not found"))
+        return
     }
 
     // If the requiresAccessToken field in the Complete Status body is set to
@@ -151,7 +158,8 @@ export async function downloadFile(req: app.Request, res: Response) {
     const path = Path.join(job.path, "files", req.params.file)
 
     if (!statSync(path, { throwIfNoEntry: false })?.isFile()) {
-        return res.status(404).json(createOperationOutcome("File not found"))
+        res.status(404).json(createOperationOutcome("File not found"))
+        return
     }
 
     res.sendFile(path, {
@@ -167,10 +175,11 @@ export async function kickOff(req: app.Request, res: Response) {
     
     if (!Job.canCreate()) {
         res.header("Retry-after", "10")
-        return res.status(429).json(createOperationOutcome(
+        res.status(429).json(createOperationOutcome(
             "Too many matching jobs are running at the moment. Please try again later.",
             { severity: "fatal" }
-        ))
+        ));
+        return;
     }
 
     if (req.registeredClient?.err === "too_many_patient_params") {
@@ -236,7 +245,7 @@ function validateMatchHeaders(headers: IncomingHttpHeaders) {
 }
 
 function getMatchParameters(body: fhir4.Parameters): app.MatchOperationParams {
-    const { parameter, resourceType } = body
+    const { parameter, resourceType } = body || {}
 
     // Verify that we have a Parameters resource with parameter array
     if (resourceType !== "Parameters" || !parameter || !Array.isArray(parameter)) {
