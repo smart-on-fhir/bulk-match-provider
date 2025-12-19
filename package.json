@@ -85,7 +85,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jwk-to-pem": "^2.0.3",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^24.0.4",
+    "@types/node": "^25.0.3",
     "@types/proper-lockfile": "^4.1.4",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
