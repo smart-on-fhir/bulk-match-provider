@@ -89,7 +89,7 @@
     "@types/proper-lockfile": "^4.1.4",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "mocha": "^10.8.2",
+    "mocha": "^11.7.5",
     "nodemon": "^3.1.11"
   }
 }
