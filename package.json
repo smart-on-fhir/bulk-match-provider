@@ -1,6 +1,6 @@
 {
   "name": "bulk-match-provider",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Bulk Match Provider",
   "app": "./src/app/index.html",
   "scripts": {
@@ -44,7 +44,7 @@
   },
   "homepage": "https://github.com/smart-on-fhir/bulk-match-provider#readme",
   "engines": {
-    "node": ">=20 <=22"
+    "node": ">=20 <=24"
   },
   "dependencies": {
     "@faker-js/faker": "^9.9.0",

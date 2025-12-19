@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:24-alpine
 
 # Defaults to 0 for random OS-allocated port but here we need a predictable fixed value to expose
 ENV PORT=80
